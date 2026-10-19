@@ -3,7 +3,8 @@
   const get = id => document.getElementById(id);
   const cloud = window.ClaraCloud;
   let client, service, subscription, session = null;
-  let ready = false, authBusy = false, dataBusy = false, epoch = 0, request = 0, page = 0, rowCount = 0;
+  let ready = false, initializing = false, authBusy = false, dataBusy = false, epoch = 0, request = 0, page = 0;
+  let hasNext = false, displayedRows = [];
   const notify = message => { get('cloud-status').textContent = message; };
   const clearError = () => { get('cloud-error').hidden = true; get('cloud-error').textContent = ''; };
   const showError = error => {
@@ -21,7 +22,7 @@
     ['dataset-save', 'datasets-refresh', 'dataset-name'].forEach(id => { get(id).disabled = dataBusy || authBusy; });
     get('datasets-list').querySelectorAll('button').forEach(button => { button.disabled = dataBusy || authBusy; });
     get('datasets-prev').disabled = dataBusy || authBusy || page === 0;
-    get('datasets-next').disabled = dataBusy || authBusy || rowCount < 20;
+    get('datasets-next').disabled = dataBusy || authBusy || !hasNext;
     get('datasets-page').textContent = `Página ${page + 1}`;
   }
 
@@ -33,7 +34,9 @@
       epoch++;
       request++;
       dataBusy = false;
-      page = rowCount = 0;
+      page = 0;
+      hasNext = false;
+      displayedRows = [];
       get('datasets-list').replaceChildren();
       get('datasets-empty').hidden = true;
       get('dataset-name').value = '';
@@ -59,8 +62,10 @@
     finally { if (current()) { dataBusy = false; controls(); } }
   }
 
-  function renderRows(rows) {
-    rowCount = rows.length;
+  function renderRows(result) {
+    const { rows } = result;
+    displayedRows = rows;
+    hasNext = result.hasNext;
     const elements = rows.map(row => {
       const li = document.createElement('li');
       const title = document.createElement('span');
@@ -88,13 +93,22 @@
     controls();
   }
 
+  async function loadPage(owner, target, current) {
+    let result = await service.list(owner, target);
+    if (!current()) return;
+    // Other sessions may have removed several pages since the previous refresh.
+    while (target > 0 && result.rows.length === 0) {
+      result = await service.list(owner, --target);
+      if (!current()) return;
+    }
+    page = target;
+    renderRows(result);
+  }
+
   function refresh(target = page) {
     return datasetTask('Cargando datasets…', async (owner, current) => {
-      const rows = await service.list(owner, target);
-      if (!current()) return;
-      page = target;
-      renderRows(rows);
-      notify('Lista actualizada.');
+      await loadPage(owner, target, current);
+      if (current()) notify('Lista actualizada.');
     });
   }
 
@@ -108,6 +122,7 @@
       }
       get('calculator').elements.variance.value = dataset.variance_type;
       get('numbers').value = dataset.values.join('; ');
+      get('calculator').querySelector('input[name="variance"]:checked').dispatchEvent(new Event('change', { bubbles: true }));
       get('numbers').dispatchEvent(new Event('input', { bubbles: true }));
       get('dataset-name').value = dataset.name;
       notify(`«${dataset.name}» recuperado en la calculadora.`);
@@ -120,12 +135,10 @@
     return datasetTask('Eliminando dataset…', async (owner, current) => {
       await service.remove(owner, row.id);
       if (!current()) return;
-      get('datasets-list').replaceChildren();
-      rowCount = 0;
+      renderRows({ rows: displayedRows.filter(item => item.id !== row.id), hasNext });
       notify('Dataset eliminado.');
       try {
-        const rows = await service.list(owner, 0);
-        if (current()) { page = 0; renderRows(rows); }
+        await loadPage(owner, page, current);
       } catch (error) {
         if (current()) { showError(error); notify('Dataset eliminado. No se pudo actualizar la lista; pulsa Actualizar lista.'); }
       }
@@ -144,18 +157,32 @@
       if (!current()) return;
       notify('Dataset guardado.');
       try {
-        const rows = await service.list(owner, 0);
-        if (current()) { page = 0; renderRows(rows); }
+        await loadPage(owner, 0, current);
       } catch (error) {
         if (current()) { showError(error); notify('Dataset guardado. No se pudo actualizar la lista; pulsa Actualizar lista antes de volver a guardar.'); }
       }
     });
   });
 
+  function syncAuthMode() {
+    const signup = get('auth-mode').value === 'signup';
+    get('auth-password').autocomplete = signup ? 'new-password' : 'current-password';
+    get('auth-password').minLength = signup ? 8 : 1;
+    get('auth-login').hidden = signup;
+    get('auth-signup').hidden = !signup;
+    get('auth-help').textContent = signup ? 'Usa al menos 8 caracteres. Es posible que debas confirmar tu correo.' : 'Introduce la contraseña de tu cuenta.';
+  }
+  get('auth-mode').addEventListener('change', () => {
+    get('auth-password').value = '';
+    clearError();
+    syncAuthMode();
+  });
+  syncAuthMode();
+
   get('auth-form').addEventListener('submit', async event => {
     event.preventDefault();
     if (!ready || authBusy) return;
-    const signup = event.submitter?.value === 'signup';
+    const signup = get('auth-mode').value === 'signup';
     const password = get('auth-password').value;
     clearError();
     if (signup && password.length < 8) { showError(new Error('Usa al menos 8 caracteres para crear tu cuenta.')); return; }
@@ -187,11 +214,13 @@
     finally { authBusy = false; controls(); }
   });
 
-  get('datasets-refresh').addEventListener('click', () => refresh(0));
-  get('datasets-prev').addEventListener('click', () => refresh(page - 1));
-  get('datasets-next').addEventListener('click', () => refresh(page + 1));
+  get('datasets-refresh').addEventListener('click', () => refresh());
+  get('datasets-prev').addEventListener('click', () => { if (page > 0) return refresh(page - 1); });
+  get('datasets-next').addEventListener('click', () => { if (hasNext) return refresh(page + 1); });
 
   async function initialize() {
+    if (initializing) return;
+    initializing = true;
     get('cloud-retry').hidden = true;
     clearError();
     notify('Conectando con Clara Cloud…');
@@ -213,7 +242,7 @@
       showError(error);
       notify('Modo local disponible.');
       get('cloud-retry').hidden = false;
-    }
+    } finally { initializing = false; }
   }
   get('cloud-retry').addEventListener('click', initialize);
   window.addEventListener('offline', () => notify('Sin conexión. Las herramientas locales siguen disponibles; las operaciones Cloud requieren Internet.'));

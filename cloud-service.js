@@ -1,7 +1,11 @@
 (function (root) {
   'use strict';
   const statistics = typeof module !== 'undefined' && module.exports ? require('./statistics.js') : root.Statistics;
-  const SDK_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.10/dist/umd/supabase.js';
+  // Generated locally from the exact npm dependency by npm run vendor:sdk.
+  // Never fall back to executing unverified CDN code.
+  const SDK_URL = new URL('vendor/supabase-js-2.49.10.js', root.document?.currentScript?.src || root.document?.baseURI || 'http://localhost/').href;
+  const PAGE_SIZE = 20;
+  let sdkLoading;
 
   function validateConfig(config) {
     if (!config || !config.url || !config.publishableKey ||
@@ -35,10 +39,13 @@
 
   async function loadClient(config) {
     const valid = validateConfig(config);
-    if (!root.supabase?.createClient) {
-      await new Promise((resolve, reject) => {
+    if (typeof root.supabase?.createClient !== 'function') {
+      if (!sdkLoading) sdkLoading = new Promise((resolve, reject) => {
         const script = root.document.createElement('script');
+        let settled = false;
         const finish = error => {
+          if (settled) return;
+          settled = true;
           clearTimeout(timer);
           script.onload = script.onerror = null;
           if (error) { script.remove(); reject(error); } else resolve();
@@ -46,10 +53,11 @@
         const timer = setTimeout(() => finish(new Error('La carga de Clara Cloud tardó demasiado. Revisa tu conexión y reintenta.')), 10000);
         script.src = SDK_URL;
         script.async = true;
-        script.onload = () => finish();
-        script.onerror = () => finish(new Error('No se pudo cargar Clara Cloud. Revisa tu conexión y reintenta.'));
-        root.document.head.append(script);
-      });
+        script.onload = () => finish(typeof root.supabase?.createClient === 'function' ? null : new Error('El SDK local de Clara Cloud no es válido. Ejecuta npm run vendor:sdk.'));
+        script.onerror = () => finish(new Error('No se pudo cargar el SDK local de Clara Cloud. Ejecuta npm install y npm run vendor:sdk, y reintenta.'));
+        try { root.document.head.append(script); } catch (error) { finish(error); }
+      }).finally(() => { sdkLoading = null; });
+      await sdkLoading;
     }
     return root.supabase.createClient(valid.url, valid.publishableKey, {
       db: { schema: 'public' },
@@ -62,9 +70,9 @@
     if (typeof dataset?.name !== 'string' || !dataset.name.trim() || dataset.name.trim().length > 100) {
       throw new Error('Escribe un nombre de entre 1 y 100 caracteres.');
     }
+    if (!['population', 'sample'].includes(dataset.variance_type)) throw new Error('Tipo de varianza no válido.');
     const values = dataset.values;
     statistics.calculateStatistics(values, dataset.variance_type);
-    if (!['population', 'sample'].includes(dataset.variance_type)) throw new Error('Tipo de varianza no válido.');
     return { name: dataset.name.trim(), values: [...values], variance_type: dataset.variance_type };
   }
 
@@ -95,9 +103,13 @@
     };
     return {
       async list(userId, page = 0) {
-        return unwrap(await table(userId).select('id,name,variance_type,created_at')
+        if (!Number.isSafeInteger(page) || page < 0 || !Number.isSafeInteger(page * PAGE_SIZE + PAGE_SIZE)) {
+          throw new Error('Página no válida.');
+        }
+        const rows = unwrap(await table(userId).select('id,name,variance_type,created_at')
           .eq('user_id', userId).order('created_at', { ascending: false }).order('id', { ascending: false })
-          .range(page * 20, page * 20 + 19));
+          .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE));
+        return { rows: rows.slice(0, PAGE_SIZE), hasNext: rows.length > PAGE_SIZE };
       },
       async save(userId, dataset) {
         const payload = validateDataset(dataset);
@@ -105,7 +117,7 @@
       },
       async get(userId, id) {
         const row = unwrap(await table(userId).select('id,name,values,variance_type')
-          .eq('user_id', userId).eq('id', id).single());
+          .eq('user_id', userId).eq('id', id).maybeSingle());
         if (!row) throw new Error('Este dataset ya no está disponible. Actualiza la lista.');
         return { id: row.id, ...validateDataset(row) };
       },

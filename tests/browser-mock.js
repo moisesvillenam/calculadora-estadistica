@@ -36,6 +36,7 @@ const client = {
       order() { return this; },
       range(from, to) { start = from; end = to; return this; },
       single() { single = true; return this; },
+      maybeSingle() { single = true; return this; },
       insert(value) { action = 'insert'; payload = value; return this; },
       delete() { action = 'delete'; return this; },
       then(resolve, reject) {

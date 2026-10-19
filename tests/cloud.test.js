@@ -8,7 +8,7 @@ const dataset = { name: '  Ejemplo  ', values: [1, 2, 3], variance_type: 'sample
 function mock(response) {
   const calls = [];
   const query = {};
-  for (const method of ['schema', 'from', 'select', 'eq', 'order', 'range', 'insert', 'single', 'delete']) {
+  for (const method of ['schema', 'from', 'select', 'eq', 'order', 'range', 'insert', 'single', 'maybeSingle', 'delete']) {
     query[method] = (...args) => { calls.push([method, ...args]); return query; };
   }
   query.then = (resolve, reject) => Promise.resolve(response).then(resolve, reject);
@@ -35,14 +35,15 @@ test('valida datos, nombre, límites y tipo antes de guardar', () => {
 
 test('listado paginado y orden estable restringido al propietario en public.datasets', async () => {
   const { service, calls } = mock({ data: [], error: null });
-  assert.deepEqual(await service.list('owner', 2), []);
+  assert.deepEqual(await service.list('owner', 2), { rows: [], hasNext: false });
   assert.deepEqual(calls, [['schema', 'public'], ['from', 'datasets'], ['select', 'id,name,variance_type,created_at'],
-    ['eq', 'user_id', 'owner'], ['order', 'created_at', { ascending: false }], ['order', 'id', { ascending: false }], ['range', 40, 59]]);
+    ['eq', 'user_id', 'owner'], ['order', 'created_at', { ascending: false }], ['order', 'id', { ascending: false }], ['range', 40, 60]]);
 });
 
 test('inserción fuerza el propietario y solo guarda los campos permitidos', async () => {
   const { service, calls } = mock({ data: { id: 'saved' } });
   await service.save('owner', { ...dataset, user_id: 'attacker', extra: 'ignored' });
+  assert.ok(calls.some(call => call[0] === 'single'));
   assert.deepEqual(calls.find(call => call[0] === 'insert')[1], { ...dataset, name: 'Ejemplo', user_id: 'owner' });
   await assert.rejects(service.save('owner', { ...dataset, values: [] }));
 });
@@ -52,7 +53,31 @@ test('recuperación valida contenido remoto y filtra por usuario e id', async ()
   assert.equal((await service.get('owner', 'one')).name, 'Ejemplo');
   assert.ok(calls.some(call => call.join() === 'eq,user_id,owner'));
   assert.ok(calls.some(call => call.join() === 'eq,id,one'));
+  assert.ok(calls.some(call => call[0] === 'maybeSingle'));
+  assert.ok(!calls.some(call => call[0] === 'single'));
+  await assert.rejects(mock({ data: null }).service.get('owner', 'one'), /ya no está disponible/);
+  await assert.rejects(mock({ error: { code: 'PGRST116' } }).service.get('owner', 'one'), error => error.code === 'PGRST116');
   await assert.rejects(mock({ data: { ...dataset, values: ['bad'] } }).service.get('owner', 'one'));
+});
+
+test('rechaza variance_type antes de leer o calcular los valores', () => {
+  for (const variance_type of [undefined, null, '', 'unknown']) {
+    const invalid = { name: 'Datos', variance_type, values: [] };
+    assert.throws(() => validateDataset(invalid), /Tipo de varianza/);
+  }
+});
+
+test('paginación detecta el final exacto y no expone la fila adicional', async () => {
+  for (const length of [0, 19, 20, 21]) {
+    const rows = Array.from({ length }, (_, id) => ({ id }));
+    const result = await mock({ data: rows }).service.list('owner');
+    assert.deepEqual(result, { rows: rows.slice(0, 20), hasNext: length > 20 });
+  }
+  const { service, calls } = mock({ data: [] });
+  for (const page of [-1, 0.5, NaN, Infinity, '1', Number.MAX_SAFE_INTEGER]) {
+    await assert.rejects(service.list('owner', page), /Página no válida/);
+  }
+  assert.equal(calls.length, 0);
 });
 
 test('eliminación exige fila afectada y ambos filtros', async () => {

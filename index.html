@@ -109,11 +109,12 @@
           <fieldset id="auth-fields">
             <legend>Accede a Clara Cloud</legend>
             <div class="cloud-fields">
-              <label for="auth-email">Correo electrónico<input id="auth-email" type="email" autocomplete="email" required maxlength="254"></label>
-              <label for="auth-password">Contraseña<input id="auth-password" type="password" autocomplete="current-password" required aria-describedby="auth-help"></label>
+              <label for="auth-mode">Acceso<select id="auth-mode"><option value="login">Iniciar sesión</option><option value="signup">Crear cuenta</option></select></label>
+              <label for="auth-email">Correo electrónico<input id="auth-email" name="email" type="email" autocomplete="username" required maxlength="254"></label>
+              <label for="auth-password">Contraseña<input id="auth-password" name="password" type="password" autocomplete="current-password" required aria-describedby="auth-help"></label>
             </div>
-            <p id="auth-help" class="hint">Para crear una cuenta, usa al menos 8 caracteres. Es posible que debas confirmar tu correo.</p>
-            <div class="actions"><button id="auth-login" class="calculate-button" type="submit" value="login">Iniciar sesión</button><button id="auth-signup" class="clear-button" type="submit" value="signup">Crear cuenta</button></div>
+            <p id="auth-help" class="hint">Introduce la contraseña de tu cuenta.</p>
+            <div class="actions"><button id="auth-login" class="calculate-button" type="submit" value="login">Iniciar sesión</button><button id="auth-signup" class="calculate-button" type="submit" value="signup" hidden>Crear cuenta</button></div>
           </fieldset>
         </form>
         <div id="cloud-signed-in" hidden>

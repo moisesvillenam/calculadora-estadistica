@@ -39,12 +39,18 @@
       get(id).dispatchEvent(new win.SubmitEvent('submit', { bubbles: true, cancelable: true, submitter: get(button) }));
     }
     get('auth-email').value = 'person@example.invalid';
+    get('auth-mode').value = 'signup';
+    get('auth-mode').dispatchEvent(new win.Event('change'));
+    assert(get('auth-password').autocomplete === 'new-password', 'Registro usa contraseña nueva');
     get('auth-password').value = 'test-password';
     submit('auth-form', 'auth-signup');
     assert(get('auth-fields').disabled, 'Registro muestra carga');
     await wait();
     assert(get('cloud-status').textContent.includes('correo'), 'Registro informa confirmación pendiente');
     assert(get('cloud-signed-in').hidden, 'Registro sin sesión no habilita datasets');
+    get('auth-mode').value = 'login';
+    get('auth-mode').dispatchEvent(new win.Event('change'));
+    assert(get('auth-password').autocomplete === 'current-password', 'Login usa contraseña actual');
     mock.fail = { code: 'invalid_credentials' };
     get('auth-password').value = 'incorrect';
     submit('auth-form', 'auth-login');
@@ -69,10 +75,15 @@
     assert(mock.rows.length === 1, 'Un solo guardado');
     assert(!get('datasets-list').querySelector('img'), 'Nombre remoto se muestra como texto');
     get('numbers').value = '100; 200';
+    get('calculator').elements.variance.value = 'population';
+    let varianceChanges = 0;
+    get('calculator').addEventListener('change', () => { varianceChanges++; });
     get('datasets-list').querySelector('button').click();
     await wait();
     assert(get('numbers').value === '1; 2; 3; 4', 'Recupera números');
     assert(get('calculator').elements.variance.value === 'sample', 'Recupera tipo');
+    assert(varianceChanges === 1, 'Recuperación emite change con propagación');
+    assert(get('variance-label').textContent === 'Varianza muestral', 'Sincroniza etiqueta de varianza');
     assert(get('count').textContent === '4' && get('mean').textContent === '2,5', 'Recuperar recalcula');
     assert(get('data-chart').querySelectorAll('button').length > 0, 'Recuperar actualiza histograma');
     win.confirm = () => false;

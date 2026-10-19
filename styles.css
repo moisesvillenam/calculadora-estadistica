@@ -175,7 +175,8 @@ footer>span:last-child{margin-left:auto}
 .cloud-account{font-size:12px;overflow-wrap:anywhere;min-width:0}
 .cloud-fields{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 .cloud-fields label{font-size:12px;font-weight:600}
-.cloud-panel input{display:block;width:100%;padding:12px;border:1px solid #c9d5bc;border-radius:7px;background:#f7f9f1;color:var(--green);margin-top:8px;min-height:44px}
+.cloud-fields label[for="auth-mode"]{grid-column:1/-1}
+.cloud-panel input,.cloud-panel select{display:block;width:100%;padding:12px;border:1px solid #c9d5bc;border-radius:7px;background:#f7f9f1;color:var(--green);margin-top:8px;min-height:44px}
 .cloud-panel form{max-width:720px;margin-top:20px}
 .cloud-panel .actions{justify-content:flex-start;flex-wrap:wrap}
 .cloud-panel .actions .calculate-button{flex:0 1 auto}
