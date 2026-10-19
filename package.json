@@ -1,0 +1,18 @@
+{
+  "name": "clara-cloud",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Laboratorio estadístico local con Supabase Auth y datasets opcionales",
+  "scripts": {
+    "postinstall": "npm run vendor:sdk",
+    "vendor:sdk": "node scripts/vendor-sdk.js",
+    "test": "node --test tests/*.test.js",
+    "test:browser": "node tests/run-browser.js"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.118.0"
+  }
+}
