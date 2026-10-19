@@ -1,11 +1,15 @@
 // Browser integration without dependencies, a server or a real Supabase project.
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 const { pathToFileURL } = require('node:url');
 const { spawn } = require('node:child_process');
 const root = path.resolve(__dirname, '..');
 const results = path.join(root, 'test-results');
-const profile = '/tmp/clara-chrome';
+// Keep Unix socket paths short and isolate runs unless a profile is supplied.
+const profile = process.env.CHROMIUM_PROFILE_DIR
+  ? path.resolve(process.env.CHROMIUM_PROFILE_DIR)
+  : fs.mkdtempSync(path.join(os.tmpdir(), 'clara-'));
 fs.mkdirSync(results, { recursive: true });
 fs.mkdirSync(profile, { recursive: true });
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');

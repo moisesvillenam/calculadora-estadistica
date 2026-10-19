@@ -4,26 +4,72 @@
   const assert = (condition, message) => { if (!condition) throw new Error(message); };
   const wait = () => new Promise(resolve => setTimeout(resolve, 40));
   const base = new URL('../', location.href).href;
-  const html = window.CLARA_TEST_HTML || await (await fetch(new URL('index.html', base))).text();
-  const configTag = '<script src="supabase-config.js" defer></script>';
-  async function frame(mock) {
-    assert(html.includes(configTag), 'Debe poder sustituirse la configuración antes de cargar la aplicación');
+  let realClient;
+  function isolate() {
+    // Supabase falls back to its memory adapter when storage is unavailable.
+    Object.defineProperty(window, 'localStorage', {
+      get() { throw new Error('Las pruebas no deben acceder a localStorage'); }
+    });
+    window.fetch = () => { throw new Error('Las pruebas no deben acceder a la red'); };
+  }
+  function prepareHtml(html, mock) {
+    // Parse without executing scripts; attribute order, quotes and whitespace
+    // must not decide whether the project's real configuration is loaded.
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const configs = [...doc.querySelectorAll('script[src]')].filter(script =>
+      new URL(script.getAttribute('src'), base).pathname.endsWith('/supabase-config.js'));
+    assert(configs.length === 1, 'Debe existir una única configuración sustituible antes de cargar la aplicación');
+    const config = doc.createElement('script');
+    if (mock) {
+      config.src = 'tests/browser-mock.js';
+      config.defer = true;
+    } else config.textContent = 'window.CLARA_SUPABASE_CONFIG = {};';
+    configs[0].replaceWith(config);
+    doc.querySelectorAll('base').forEach(element => element.remove());
+    const baseTag = doc.createElement('base');
+    baseTag.href = base;
+    const policy = doc.createElement('meta');
+    policy.httpEquiv = 'Content-Security-Policy';
+    policy.content = "connect-src 'none'; form-action 'none'";
+    const sandbox = doc.createElement('script');
+    sandbox.textContent = `(${isolate.toString()})();`;
+    doc.head.prepend(policy, baseTag, sandbox);
+    return '<!doctype html>\n' + doc.documentElement.outerHTML;
+  }
+  async function frame(html, mock) {
+    // Fail closed before attaching a browsing context if replacement fails.
+    const source = prepareHtml(html, mock);
     const iframe = document.createElement('iframe');
     iframe.style.width = '390px';
     iframe.style.height = '800px';
     const loaded = new Promise(resolve => { iframe.onload = resolve; });
-    // Never read the project's real URL/key, even when Cloud is configured locally.
-    const configScript = mock ? '<script src="tests/browser-mock.js" defer></script>'
-      : '<script>window.CLARA_SUPABASE_CONFIG = {};</script>';
-    iframe.srcdoc = html.replace('<head>', `<head><base href="${base}">`)
-      .replace(configTag, configScript);
+    iframe.srcdoc = source;
     document.body.append(iframe);
     await loaded;
     await wait();
     return iframe.contentWindow;
   }
   try {
-    const local = await frame(false);
+    const html = window.CLARA_TEST_HTML || await (await fetch(new URL('index.html', base))).text();
+    const variants = [
+      '<script src="supabase-config.js" defer></script>',
+      "<SCRIPT defer data-test='a > b' SRC='./supabase-config.js?v=1#config'></SCRIPT>",
+      '<script\n defer\n src = supabase-config.js\n></script>'
+    ];
+    for (const tag of variants) {
+      for (const mock of [false, true]) {
+        const source = prepareHtml(`<html><head lang="es">${tag}</head><body></body></html>`, mock);
+        assert(!source.includes('supabase-config.js'), 'Sustituye configuración independientemente del formato');
+        assert(source.includes("connect-src 'none'"), 'Bloquea conexiones antes de ejecutar la aplicación');
+      }
+    }
+    for (const tags of ['', variants[0] + variants[1]]) {
+      let rejected = false;
+      try { prepareHtml(`<head>${tags}</head>`, false); } catch { rejected = true; }
+      assert(rejected, 'Configuración ausente o duplicada impide cargar la aplicación');
+    }
+    passed.push('Fixtures: sustitución de configuración y bloqueo de conexiones');
+    const local = await frame(html, false);
     const l = id => local.document.getElementById(id);
     assert(l('cloud-error').textContent.includes('no está configurado'), 'Mensaje de configuración faltante');
     assert(!local.document.querySelector('script[src*="supabase-js-"]'), 'Sin configuración no se descarga SDK');
@@ -39,17 +85,17 @@
 
     // Exercise the real script loader and browser UMD export with no backend calls.
     const version = window.CLARA_TEST_SDK_VERSION || (await (await fetch(new URL('vendor/supabase-sdk.json', base))).json()).version;
-    local.fetch = () => { throw new Error('La prueba del SDK no debe acceder a la red'); };
-    const realClient = await local.ClaraCloud.loadClient({ url: 'https://example.invalid', publishableKey: 'sb_publishable_TEST_ONLY' });
+    realClient = await local.ClaraCloud.loadClient({ url: 'https://example.invalid', publishableKey: 'sb_publishable_TEST_ONLY' });
     assert(local.document.querySelector(`script[src="${new URL(`vendor/supabase-js-${version}.js`, base).href}"]`), 'Carga el bundle local de la versión declarada');
     assert(realClient.headers['X-Client-Info'].split(';')[0] === `supabase-js/${version}`, 'El bundle ejecutado declara la versión esperada');
     assert(typeof realClient.auth.signInWithPassword === 'function' && typeof realClient.schema === 'function', 'SDK real expone Auth y consultas');
     const session = await realClient.auth.getSession();
     assert(!session.error && session.data.session === null, 'SDK real inicia sin sesión');
+    assert(realClient.auth.memoryStorage && Object.keys(realClient.auth.memoryStorage).length === 0, 'SDK real usa almacenamiento vacío en memoria');
     await realClient.auth.stopAutoRefresh();
     passed.push('SDK oficial: carga local, versión y sesión inicial sin red');
 
-    const win = await frame(true);
+    const win = await frame(html, true);
     const get = id => win.document.getElementById(id);
     const mock = win.Mock;
     win.confirm = () => true;
@@ -154,5 +200,7 @@
   } catch (error) {
     output.dataset.status = 'failed';
     output.textContent = passed.join('\n') + '\nERROR: ' + error.stack;
+  } finally {
+    if (realClient) await realClient.auth.stopAutoRefresh();
   }
 })();

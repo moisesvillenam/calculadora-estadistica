@@ -1,0 +1,2 @@
+# Preserve the official UMD bytes and manifest SHA-256 on every platform.
+vendor/supabase-js-*.js -text

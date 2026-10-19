@@ -9,6 +9,34 @@ const manifest = require('../vendor/supabase-sdk.json');
 const bundle = fs.readFileSync(path.join(__dirname, '../vendor', manifest.file));
 const config = { url: 'https://example.invalid', publishableKey: 'sb_publishable_TEST_ONLY_NOT_A_CREDENTIAL' };
 
+async function readRequest(input, options = {}) {
+  const request = new Request(input, options ?? {});
+  const text = await request.text();
+  return { url: new URL(request.url), method: request.method,
+    headers: request.headers, body: text ? JSON.parse(text) : undefined };
+}
+
+test('transporte simulado acepta URL, Request y opciones omitidas o parciales', async () => {
+  for (const options of [undefined, null, {}, { headers: { 'x-test': 'ok' } }]) {
+    const request = await readRequest(new URL(config.url), options);
+    assert.equal(request.url.origin, config.url);
+    assert.equal(request.method, 'GET');
+    assert.equal(request.body, undefined);
+    assert.equal(request.headers.get('x-test'), options?.headers ? 'ok' : null);
+  }
+  const input = new Request(config.url, { method: 'POST',
+    headers: { 'x-test': 'inherited' }, body: JSON.stringify({ value: 1 }) });
+  const inherited = await readRequest(input.clone());
+  assert.equal(inherited.method, 'POST');
+  assert.equal(inherited.headers.get('x-test'), 'inherited');
+  assert.deepEqual(inherited.body, { value: 1 });
+  const overridden = await readRequest(input, { method: 'PUT',
+    headers: { 'x-test': 'overridden' }, body: JSON.stringify({ value: 2 }) });
+  assert.equal(overridden.method, 'PUT');
+  assert.equal(overridden.headers.get('x-test'), 'overridden');
+  assert.deepEqual(overridden.body, { value: 2 });
+});
+
 test('dependencia, lockfile, manifiesto y bytes UMD coinciden con el SDK instalado', () => {
   assert.equal(require('../package.json').dependencies['@supabase/supabase-js'], version);
   const lock = require('../package-lock.json');
@@ -93,10 +121,8 @@ test('bundle UMD real: versión en peticiones, Auth y CRUD con transporte simula
   Object.assign(sdk.context, {
     Headers, Request, Response, AbortController, TextEncoder, TextDecoder, WebSocket,
     setTimeout, clearTimeout, setInterval, clearInterval, console,
-    async fetch(input, options) {
-      const url = new URL(input), headers = new Headers(options.headers);
-      const method = options.method || 'GET';
-      const body = options.body ? JSON.parse(options.body) : undefined;
+    async fetch(input, options = {}) {
+      const { url, method, headers, body } = await readRequest(input, options);
       requests.push({ url, method, headers, body });
       assert.equal(url.origin, config.url);
       assert.equal(headers.get('apikey'), config.publishableKey);
@@ -134,6 +160,10 @@ test('bundle UMD real: versión en peticiones, Auth y CRUD con transporte simula
       return new Response(JSON.stringify(data), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
   });
+  // Never expose host storage to the VM, even if Node provides localStorage.
+  Object.defineProperty(sdk.context, 'localStorage', {
+    get() { throw new Error('El SDK de prueba debe usar almacenamiento en memoria'); }
+  });
   const loading = sdk.load();
   assert.equal(sdk.scripts[0].src, `https://app.example.invalid/clara/vendor/${manifest.file}`);
   vm.runInContext(bundle.toString('utf8'), sdk.context, { filename: manifest.file });
@@ -145,6 +175,7 @@ test('bundle UMD real: versión en peticiones, Auth y CRUD con transporte simula
   assert.equal(client.auth.persistSession, true);
   assert.equal(client.auth.autoRefreshToken, true);
   assert.equal(client.auth.detectSessionInUrl, true);
+  assert.ok(client.auth.memoryStorage);
   assert.equal((await client.auth.getSession()).data.session, null);
   const credentials = { email: user.email, password: 'TEST_ONLY_PASSWORD' };
   const signup = await client.auth.signUp(credentials);

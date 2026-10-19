@@ -27,7 +27,7 @@ npm ci
 npm run vendor:sdk
 ```
 
-`package.json` fija `@supabase/supabase-js` exactamente a **2.118.0**. El SDK requiere **Node.js 22 o posterior** para las herramientas npm; el entorno verificado usa **v22.23.3**. [scripts/vendor-sdk.js](scripts/vendor-sdk.js) comprueba la versión instalada y copia el bundle UMD oficial sin transformaciones a `vendor/supabase-js-2.118.0.js`, junto con su licencia. Genera `vendor/supabase-sdk.json` con el SHA-256 calculado sobre los bytes copiados para facilitar su revisión. Este resumen local no es un SRI remoto ni una verificación independiente del origen. El bundle, la licencia, el manifiesto y `package-lock.json` están incluidos en el proyecto; sirve el bundle junto con la aplicación.
+`package.json` fija `@supabase/supabase-js` exactamente a **2.118.0**. El SDK requiere **Node.js 22 o posterior** para las herramientas npm. [scripts/vendor-sdk.js](scripts/vendor-sdk.js) comprueba la versión instalada y copia el bundle UMD oficial sin transformaciones a `vendor/supabase-js-2.118.0.js`, junto con su licencia. Genera `vendor/supabase-sdk.json` con el SHA-256 calculado sobre los bytes copiados para facilitar su revisión. `.gitattributes` desactiva la conversión de finales de línea para estos bundles y conserva sus bytes al cambiar de plataforma. Este resumen local no es un SRI remoto ni una verificación independiente del origen. El bundle, la licencia, el manifiesto y `package-lock.json` están incluidos en el proyecto; sirve el bundle junto con la aplicación.
 
 La aplicación carga ese archivo local de forma asíncrona solo tras validar la configuración, sin fallback a CDN. Esta es la alternativa local a ejecutar código remoto con SRI: no se incluye ningún hash inventado. Las llamadas concurrentes comparten una sola descarga, y los fallos limpian el estado para reintentar. La carga tiene un límite de 10 segundos; las peticiones usan cancelación a los 15 segundos. Si falta el archivo local, Cloud informa del problema y las herramientas estadísticas siguen disponibles.
 
@@ -99,7 +99,7 @@ npm audit
 
 Cubren validación de configuración y datasets, contrato JSON de `data` para ambas varianzas, rechazo de contenido remoto inválido y columnas inexistentes, rechazo de secretos y JWT, `maybeSingle()` sin filas, consultas limitadas al propietario, paginación con finales exactos, conservación y retroceso de página al borrar, errores, cancelación y regresiones de estadísticas, histogramas y muestreo reproducible. También ejecutan `cloud-ui.js` con un DOM mínimo y dobles para probar autenticación, autocomplete, eventos de recuperación (incluido radio de varianza ausente), doble envío y respuestas tardías tras cambiar de cuenta. El cargador del SDK se prueba con carga concurrente, URL local versionada, error, timeout, exportación inválida y reintento.
 
-`tests/sdk.test.js` compara el SHA-256 del bundle y sus bytes con el UMD del paquete instalado. Además ejecuta ese bundle real en un contexto aislado con transporte HTTP simulado para comprobar la versión anunciada, registro, login, sesión, eventos de Auth, cierre local y CRUD con filtros por propietario y esquema `public`. No contacta Supabase ni comprueba las políticas RLS desplegadas.
+`tests/sdk.test.js` compara el SHA-256 del bundle y sus bytes con el UMD del paquete instalado. Además ejecuta ese bundle real en un contexto aislado con transporte HTTP simulado para comprobar la versión anunciada, registro, login, sesión, eventos de Auth, cierre local y CRUD con filtros por propietario y esquema `public`. El transporte admite URL o Request y opciones omitidas o parciales. Las sesiones de prueba se mantienen en memoria, sin acceder a localStorage. No contacta Supabase ni comprueba las políticas RLS desplegadas.
 
 La prueba de integración usa Chromium, el bundle real para comprobar su carga y sesión inicial, y dobles de Supabase para los flujos de interfaz, sin servidor ni acceso remoto:
 
@@ -107,17 +107,19 @@ La prueba de integración usa Chromium, el bundle real para comprobar su carga y
 npm run test:browser
 # Si Chromium está en otra ubicación:
 CHROMIUM_BIN=/ruta/a/chromium npm run test:browser
+# Para mantener también el perfil dentro del proyecto:
+CHROMIUM_PROFILE_DIR="$PWD/.browser-test-profile" npm run test:browser
 ```
 
-Comprueba modo local, gráficos, simulación, carga del SDK oficial, registro, confirmación pendiente, login, CRUD, cancelación de borrado, doble envío, nombres con HTML, paginación, errores, cambio de cuenta, respuestas tardías y anchura móvil. Genera exclusivamente archivos ignorados en `test-results/` y `.browser-test-profile/`, dentro del proyecto. Sustituye la configuración por fixtures ficticias sin cargar `supabase-config.js`, aunque Cloud esté configurado en el proyecto. Ninguna fixture se envía a un servidor.
+Comprueba modo local, gráficos, simulación, carga del SDK oficial, registro, confirmación pendiente, login, CRUD, cancelación de borrado, doble envío, nombres con HTML, paginación, errores, cambio de cuenta, respuestas tardías y anchura móvil. Genera la página de pruebas en `test-results/` (ignorado por Git). Por defecto crea un perfil exclusivo con prefijo `clara-` en el directorio temporal del sistema (`/tmp` en Linux); `CHROMIUM_PROFILE_DIR` permite elegir otra ruta. Usa una ruta corta para los sockets de Chromium y un perfil dedicado a pruebas. Los archivos del perfil se conservan tras la ejecución.
 
-Validación de la actualización con Node.js v22.23.3: `npm test` y `git diff --check` pasan. `npm audit` se intentó, pero no pudo consultar el registro (`ENOTFOUND registry.npmjs.org`); el estado de vulnerabilidades queda pendiente. `npm run test:browser` se intentó, pero Chromium no pudo arrancar por la restricción de sockets del entorno (`setsockopt: Operation not permitted`). No se afirma que las pruebas de navegador hayan pasado ni que se haya validado Auth o RLS contra un proyecto real.
+Sustituye `supabase-config.js` por fixtures ficticias antes de cargar la aplicación, independientemente de comillas, espacios u orden de atributos; si la etiqueta falta o aparece duplicada, la prueba falla sin cargar la aplicación. Los frames bloquean las conexiones mediante CSP y un fetch que rechaza peticiones, y el SDK usa sesiones en memoria sin acceder a localStorage. Ninguna fixture se envía a un servidor.
 
 ## Revisión antes de publicar
 
-**Antigravity debe revisar estos cambios e identificar posibles problemas antes de publicar.** La revisión sigue pendiente: el ejecutable está instalado, pero el intento de iniciarlo en este entorno falló con `sandbox_host_linux.cc: shutdown: Operation not permitted`. No se ha obtenido un informe de Antigravity.
+**Antigravity debe revisar los cambios y señalar cualquier problema bloqueante antes de publicar.**
 
-La revisión debe comprobar el diff, la coincidencia de versiones y bytes del SDK, la carga desde una subcarpeta, Auth y el contrato de datasets, y confirmar que `supabase-config.js` y las políticas RLS permanecen intactos. También debe repetir `npm audit` con acceso al registro y `npm run test:browser` en un entorno que permita Chromium. Las pruebas con transporte simulado no sustituyen una comprobación autorizada de aislamiento RLS entre dos cuentas.
+La revisión debe comprobar el diff, la coincidencia de versiones y bytes del SDK, la carga desde una subcarpeta, Auth y el contrato de datasets, y confirmar que `supabase-config.js` y las políticas RLS permanecen intactos. Ejecuta `npm test`, `npm audit` con acceso al registro y `npm run test:browser` en un entorno que permita Chromium. Resuelve los problemas bloqueantes antes de publicar. Las pruebas con transporte simulado no sustituyen una comprobación autorizada de aislamiento RLS entre dos cuentas.
 
 ## Archivos
 
@@ -126,5 +128,3 @@ La revisión debe comprobar el diff, la coincidencia de versiones y bytes del SD
 - `cloud-service.js`: carga de supabase-js, validación y consultas a `public.datasets`.
 - `cloud-ui.js`: autenticación, estado de sesión e interfaz de datasets.
 - `tests/`: pruebas automatizadas sin credenciales reales.
-
-No se publicaron cambios ni se ejecutaron migraciones.
