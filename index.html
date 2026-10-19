@@ -11,12 +11,15 @@
   <script src="laboratory.js" defer></script>
   <script src="lab-ui.js" defer></script>
   <script src="app.js" defer></script>
+  <script src="supabase-config.js" defer></script>
+  <script src="cloud-service.js" defer></script>
+  <script src="cloud-ui.js" defer></script>
 </head>
 <body>
   <div class="page">
     <header class="header">
       <a class="brand" href="./" aria-label="Clara, inicio"><span class="brand-icon" aria-hidden="true">∑</span> clara<span class="brand-dot">.</span></a>
-      <nav aria-label="Navegación principal"><a href="#calculator">Explorar</a><a href="#simulation">Experimentar</a><a href="#guide-title">Aprender</a></nav><span class="header-note"><span class="online-dot"></span> LOCAL · SIN CONEXIÓN</span>
+      <nav aria-label="Navegación principal"><a href="#calculator">Explorar</a><a href="#simulation">Experimentar</a><a href="#guide-title">Aprender</a><a href="#cloud">Mis datasets</a></nav><span class="header-note"><span class="online-dot"></span> CÁLCULOS LOCALES</span>
     </header>
     <a class="skip-link" href="#calculator">Ir a la calculadora</a>
     <main>
@@ -96,6 +99,38 @@
         </div>
       </section>
 
+      <section id="cloud" class="panel cloud-panel" aria-labelledby="cloud-title">
+        <div class="section-heading"><div><p class="eyebrow">CLARA CLOUD</p><h2 id="cloud-title">Mis datasets</h2></div><span id="cloud-account" class="cloud-account">Modo local</span></div>
+        <p class="cloud-copy">Guarda tus conjuntos de números y recupéralos con tu cuenta. Los cálculos y simulaciones siguen funcionando sin conexión. Los datos solo se envían cuando eliges guardarlos.</p>
+        <p id="cloud-status" role="status" aria-live="polite">Preparando Clara Cloud…</p>
+        <p id="cloud-error" class="error" role="alert" hidden></p>
+        <button id="cloud-retry" class="clear-button" type="button" hidden>Reintentar conexión</button>
+        <form id="auth-form" hidden>
+          <fieldset id="auth-fields">
+            <legend>Accede a Clara Cloud</legend>
+            <div class="cloud-fields">
+              <label for="auth-email">Correo electrónico<input id="auth-email" type="email" autocomplete="email" required maxlength="254"></label>
+              <label for="auth-password">Contraseña<input id="auth-password" type="password" autocomplete="current-password" required aria-describedby="auth-help"></label>
+            </div>
+            <p id="auth-help" class="hint">Para crear una cuenta, usa al menos 8 caracteres. Es posible que debas confirmar tu correo.</p>
+            <div class="actions"><button id="auth-login" class="calculate-button" type="submit" value="login">Iniciar sesión</button><button id="auth-signup" class="clear-button" type="submit" value="signup">Crear cuenta</button></div>
+          </fieldset>
+        </form>
+        <div id="cloud-signed-in" hidden>
+          <button id="auth-logout" class="clear-button" type="button">Cerrar sesión en este dispositivo</button>
+          <form id="dataset-form">
+            <label for="dataset-name">Nombre del dataset</label>
+            <input id="dataset-name" type="text" required maxlength="100" placeholder="Ej.: Mediciones de octubre">
+            <p class="hint">Se guardan los números actuales de la calculadora y el tipo de varianza seleccionado. Cada guardado crea un dataset nuevo.</p>
+            <button id="dataset-save" class="calculate-button" type="submit">Guardar datos actuales</button>
+          </form>
+          <div class="section-heading cloud-list-heading"><h3>Conjuntos guardados</h3><button id="datasets-refresh" class="clear-button" type="button">Actualizar lista</button></div>
+          <p id="datasets-empty" hidden>No tienes datasets guardados todavía.</p>
+          <ul id="datasets-list" class="datasets-list" aria-label="Datasets guardados"></ul>
+          <div class="cloud-pagination"><button id="datasets-prev" class="clear-button" type="button">Anterior</button><span id="datasets-page"></span><button id="datasets-next" class="clear-button" type="button">Siguiente</button></div>
+        </div>
+      </section>
+
       <section class="guide" aria-labelledby="guide-title">
         <div class="guide-heading"><span class="eyebrow">03 / COMPRENDE</span><h2 id="guide-title">Entiende cada resultado.</h2></div>
         <article><span class="guide-number">01 / MEDIA</span><h3>El punto de equilibrio</h3><p>Suma todos los valores y divide entre la cantidad de datos. Ten en cuenta que los valores extremos pueden influir en ella.</p><code data-statistics-type="population"><math aria-label="Media poblacional: suma de los valores desde i igual a 1 hasta N, dividida entre N."><mi>μ</mi><mo>=</mo><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover><msub><mi>x</mi><mi>i</mi></msub></mrow><mrow><mi>N</mi></mrow></mfrac></math></code><code data-statistics-type="sample" hidden><math aria-label="Media muestral: suma de los valores desde i igual a 1 hasta n, dividida entre n."><mover><mi>x</mi><mo>¯</mo></mover><mo>=</mo><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>n</mi></munderover><msub><mi>x</mi><mi>i</mi></msub></mrow><mrow><mi>n</mi></mrow></mfrac></math></code></article>
@@ -104,7 +139,7 @@
         <article><span class="guide-number">04 / DESVIACIÓN ESTÁNDAR</span><h3>La variación en tus unidades</h3><p>Es la raíz cuadrada de la varianza. Expresa cuánto varían los datos en las mismas unidades que los valores originales.</p><code data-statistics-type="population"><math aria-label="Desviación estándar poblacional: raíz cuadrada de la varianza poblacional."><mi>σ</mi><mo>=</mo><msqrt><msup><mi>σ</mi><mn>2</mn></msup></msqrt></math></code><code data-statistics-type="sample" hidden><math aria-label="Desviación estándar muestral: raíz cuadrada de la varianza muestral."><mi>s</mi><mo>=</mo><msqrt><msup><mi>s</mi><mn>2</mn></msup></msqrt></math></code></article>
       </section>
     </main>
-    <footer><span class="footer-brand">clara.</span><span>La curiosidad también se puede calcular.</span><span>Sin cuentas. Sin servidores. Solo tus ideas.</span></footer>
+    <footer><span class="footer-brand">clara.</span><span>La curiosidad también se puede calcular.</span><span>Herramientas locales · Cuenta Cloud opcional</span></footer>
   </div>
 </body>
 </html>
