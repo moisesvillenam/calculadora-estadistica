@@ -32,6 +32,7 @@ function resetResults() {
   status.textContent = 'En espera';
   note.textContent = 'Introduce tus números para descubrir sus estadísticas.';
   syncType();
+  window.Lab?.update(null, null);
 }
 
 function clearError() {
@@ -42,14 +43,16 @@ function clearError() {
 
 function calculate({ focusOnError = true } = {}) {
   clearError();
-  resetResults();
+  syncType();
   try {
     const values = Statistics.parseNumbers(input.value);
     const result = Statistics.calculateStatistics(values, form.elements.variance.value);
     resultKeys.forEach(key => { document.getElementById(key).textContent = formatNumber(result[key]); });
     status.textContent = 'Calculado';
+    window.Lab?.update(values, result);
     note.textContent = 'Resultados redondeados a un máximo de 6 decimales. Los valores muy pequeños o grandes usan notación científica.';
   } catch (exception) {
+    resetResults();
     error.textContent = exception.message;
     error.hidden = false;
     input.setAttribute('aria-invalid', 'true');
@@ -59,7 +62,10 @@ function calculate({ focusOnError = true } = {}) {
 }
 
 form.addEventListener('submit', event => { event.preventDefault(); calculate(); });
-input.addEventListener('input', () => { clearError(); resetResults(); });
+input.addEventListener('input', () => {
+  if (input.value.trim()) calculate({ focusOnError: false });
+  else { clearError(); resetResults(); }
+});
 form.querySelectorAll('input[name="variance"]').forEach(radio => {
   radio.addEventListener('change', () => {
     clearError();
@@ -85,7 +91,7 @@ form.addEventListener('reset', () => {
 
 // Browsers can restore controls when returning to this page.
 window.addEventListener('pageshow', () => {
-  clearError();
-  resetResults();
+  if (input.value.trim()) calculate({ focusOnError: false });
+  else { clearError(); resetResults(); }
 });
 resetResults();
