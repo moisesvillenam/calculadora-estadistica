@@ -1,6 +1,6 @@
 {
   "package": "@supabase/supabase-js",
-  "version": "2.49.10",
-  "file": "supabase-js-2.49.10.js",
-  "sha256": "2162a3bcb4d3cd0a476a2d5cd5368968bf055281896078ddb0970ddfd1ad95b2"
+  "version": "2.118.0",
+  "file": "supabase-js-2.118.0.js",
+  "sha256": "ee3be8de192b97cb1d73d1e95d6b82bb1f6b658c0f97c4ef757fc331996ed3d3"
 }

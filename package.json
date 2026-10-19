@@ -9,6 +9,10 @@
     "test": "node --test tests/*.test.js",
     "test:browser": "node tests/run-browser.js"
   },
-  "engines": { "node": ">=18" },
-  "dependencies": { "@supabase/supabase-js": "2.49.10" }
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.118.0"
+  }
 }
