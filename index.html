@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#163f35">
+  <meta name="description" content="Calcula la media, mediana, varianza y desviación estándar de tus datos de forma sencilla.">
+  <title>Clara · Calculadora estadística</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="statistics.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <a class="brand" href="./" aria-label="Clara, inicio"><span class="brand-icon" aria-hidden="true">∑</span> clara<span class="brand-dot">.</span></a>
+      <span class="header-note">ESTADÍSTICA, SIN COMPLICACIONES</span>
+    </header>
+    <a class="skip-link" href="#calculator">Ir a la calculadora</a>
+    <main>
+      <section class="intro" aria-labelledby="title">
+        <p class="eyebrow"><span></span> MENOS FÓRMULAS. MÁS CLARIDAD.</p>
+        <h1 id="title">Tus datos tienen<br>algo que <em>contarte.</em></h1>
+        <p class="intro-copy">Encuentra el centro de tus números.<br>Calcula su media, mediana, varianza y desviación estándar.</p>
+      </section>
+
+      <div class="workspace">
+        <section class="input-panel" aria-labelledby="input-title">
+          <div class="section-heading"><h2 id="input-title"><span class="step">01</span> Introduce tus datos</h2><button id="example" class="text-button" type="button">Usar ejemplo ↗</button></div>
+          <form id="calculator" novalidate tabindex="-1">
+            <label for="numbers">Conjunto de números</label>
+            <textarea id="numbers" name="numbers" rows="5" placeholder="Ej.: 8; 12; 15; 10; 20; 15; 18" aria-describedby="input-help error" spellcheck="false"></textarea>
+            <p id="input-help" class="hint">Separa con espacios, punto y coma o saltos de línea.<br>Usa un punto para los decimales: <strong>3.5</strong>. No uses comas.<br>Máximo: 10 000 valores; una muestra requiere al menos dos.</p>
+            <fieldset>
+              <legend>Tipo de varianza y desviación estándar</legend>
+              <div class="variance-options">
+                <label class="radio-option"><input type="radio" name="variance" value="population" checked><span>Poblacional <small>Todos los datos · N</small></span></label>
+                <label class="radio-option"><input type="radio" name="variance" value="sample"><span>Muestral <small>Una muestra · n − 1</small></span></label>
+              </div>
+            </fieldset>
+            <p id="error" class="error" role="alert" hidden></p>
+            <div class="actions"><button class="calculate-button" type="submit">Calcular resultados <span aria-hidden="true">→</span></button><button id="clear" class="clear-button" type="button">Limpiar</button></div>
+          </form>
+          <p class="privacy"><span aria-hidden="true">◇</span> Tus datos se calculan aquí, en tu navegador.</p>
+        </section>
+
+        <section class="results-panel" aria-labelledby="results-title">
+          <div class="section-heading"><h2 id="results-title"><span class="step">02</span> Tus resultados</h2><span id="status" class="status" role="status" aria-atomic="true">En espera</span></div>
+          <div id="results" aria-live="polite" aria-atomic="true">
+            <article class="result-card mean-card"><div><h3>Media</h3><span id="mean-symbol" class="math-symbol" aria-hidden="true">μ</span></div><p id="mean" class="result-value">—</p><p>El promedio de tus números</p></article>
+            <div class="secondary-results">
+              <article class="result-card"><div><h3>Mediana</h3><span class="math-symbol" aria-hidden="true">Me</span></div><p id="median" class="result-value">—</p><p>El valor central</p></article>
+              <article class="result-card"><div><h3>Varianza</h3><span id="variance-symbol" class="math-symbol" aria-hidden="true">σ²</span></div><p id="variance" class="result-value">—</p><p id="variance-label">Varianza poblacional</p></article>
+            </div>
+            <article class="result-card standard-deviation-card"><div><h3>Desviación estándar</h3><span id="standard-deviation-symbol" class="math-symbol" aria-hidden="true">σ</span></div><p id="standardDeviation" class="result-value">—</p><p id="standard-deviation-label">Desviación estándar poblacional</p></article>
+            <div class="data-summary"><span>Datos analizados <strong id="count">—</strong></span><span>Mínimo <strong id="min">—</strong></span><span>Máximo <strong id="max">—</strong></span></div>
+            <p id="result-note" class="result-note">Introduce tus números para descubrir sus estadísticas.</p>
+          </div>
+        </section>
+      </div>
+
+      <section class="guide" aria-labelledby="guide-title">
+        <div class="guide-heading"><span class="eyebrow">UN POCO DE CONTEXTO</span><h2 id="guide-title">Entiende cada resultado.</h2></div>
+        <article><span class="guide-number">01 / MEDIA</span><h3>El punto de equilibrio</h3><p>Suma todos los valores y divide entre la cantidad de datos. Ten en cuenta que los valores extremos pueden influir en ella.</p><code data-statistics-type="population"><math aria-label="Media poblacional: suma de los valores desde i igual a 1 hasta N, dividida entre N."><mi>μ</mi><mo>=</mo><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover><msub><mi>x</mi><mi>i</mi></msub></mrow><mrow><mi>N</mi></mrow></mfrac></math></code><code data-statistics-type="sample" hidden><math aria-label="Media muestral: suma de los valores desde i igual a 1 hasta n, dividida entre n."><mover><mi>x</mi><mo>¯</mo></mover><mo>=</mo><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>n</mi></munderover><msub><mi>x</mi><mi>i</mi></msub></mrow><mrow><mi>n</mi></mrow></mfrac></math></code></article>
+        <article><span class="guide-number">02 / MEDIANA</span><h3>Justo en el centro</h3><p>Ordena los números y encuentra el valor central. Si hay una cantidad par, toma el promedio de los dos valores centrales.</p><code>Ordenar → encontrar el centro</code></article>
+        <article><span class="guide-number">03 / VARIANZA</span><h3>Qué tan separados están</h3><p>Mide cuánto se alejan los datos de la media. Divide entre N para una población o entre n − 1 para una muestra.</p><code data-statistics-type="population"><math aria-label="Varianza poblacional: suma de las diferencias al cuadrado respecto a la media poblacional, dividida entre N."><msup><mi>σ</mi><mn>2</mn></msup><mo>=</mo><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover><msup><mrow><mo>(</mo><msub><mi>x</mi><mi>i</mi></msub><mo>−</mo><mi>μ</mi><mo>)</mo></mrow><mn>2</mn></msup></mrow><mrow><mi>N</mi></mrow></mfrac></math></code><code data-statistics-type="sample" hidden><math aria-label="Varianza muestral: suma de las diferencias al cuadrado respecto a la media muestral, dividida entre n menos 1."><msup><mi>s</mi><mn>2</mn></msup><mo>=</mo><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>n</mi></munderover><msup><mrow><mo>(</mo><msub><mi>x</mi><mi>i</mi></msub><mo>−</mo><mover><mi>x</mi><mo>¯</mo></mover><mo>)</mo></mrow><mn>2</mn></msup></mrow><mrow><mi>n</mi><mo>−</mo><mn>1</mn></mrow></mfrac></math></code></article>
+        <article><span class="guide-number">04 / DESVIACIÓN ESTÁNDAR</span><h3>La variación en tus unidades</h3><p>Es la raíz cuadrada de la varianza. Expresa cuánto varían los datos en las mismas unidades que los valores originales.</p><code data-statistics-type="population"><math aria-label="Desviación estándar poblacional: raíz cuadrada de la varianza poblacional."><mi>σ</mi><mo>=</mo><msqrt><msup><mi>σ</mi><mn>2</mn></msup></msqrt></math></code><code data-statistics-type="sample" hidden><math aria-label="Desviación estándar muestral: raíz cuadrada de la varianza muestral."><mi>s</mi><mo>=</mo><msqrt><msup><mi>s</mi><mn>2</mn></msup></msqrt></math></code></article>
+      </section>
+    </main>
+    <footer><span class="footer-brand">clara.</span><span>Un poco de orden para tus números.</span><span>Hecho para entender.</span></footer>
+  </div>
+</body>
+</html>
