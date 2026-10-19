@@ -10,28 +10,28 @@ El modo local significa que los cálculos funcionan con los archivos de la aplic
 
 ## Configuración de Cloud
 
-Edita únicamente los dos marcadores de [supabase-config.js](supabase-config.js):
+Si Cloud aún no está configurado, completa únicamente los dos campos de [supabase-config.js](supabase-config.js); conserva los valores existentes si ya corresponden a tu proyecto:
 
 | Campo | Valor necesario |
 | --- | --- |
 | `url` | URL HTTPS del proyecto Supabase, sin rutas ni credenciales |
 | `publishableKey` | Clave **publicable**, con prefijo `sb_publishable_` |
 
-No se incluyen credenciales reales. La configuración es pública y visible en el navegador. Nunca introduzcas claves secretas, `service_role`, contraseñas de PostgreSQL ni una cadena de conexión. Esta versión rechaza las claves JWT antiguas, incluidas las `anon`: utiliza una clave publicable.
+La configuración es pública y visible en el navegador. Nunca introduzcas claves secretas, `service_role`, contraseñas de PostgreSQL ni una cadena de conexión. Esta versión rechaza las claves JWT antiguas, incluidas las `anon`: utiliza una clave publicable. La actualización del SDK conserva este archivo sin cambios.
 
 Sin valores válidos se muestra una explicación y no se carga el SDK ni se hacen peticiones a Supabase. Las funciones locales siguen disponibles. Para habilitar Cloud, prepara el SDK **local y versionado**:
 
 ```sh
-npm install
+npm ci
 # postinstall ejecuta vendor:sdk. Para repetir la copia:
 npm run vendor:sdk
 ```
 
-`package.json` fija `@supabase/supabase-js` exactamente a **2.49.10**. [scripts/vendor-sdk.js](scripts/vendor-sdk.js) comprueba la versión instalada y copia el bundle UMD oficial sin transformaciones a `vendor/supabase-js-2.49.10.js`, junto con su licencia. Genera `vendor/supabase-sdk.json` con el SHA-256 calculado sobre los bytes copiados para facilitar su revisión. Este resumen local no es un SRI remoto ni una verificación independiente del origen. Conserva los archivos generados y el `package-lock.json` que genere una instalación correcta; sirve el bundle junto con la aplicación.
+`package.json` fija `@supabase/supabase-js` exactamente a **2.118.0**. El SDK requiere **Node.js 22 o posterior** para las herramientas npm; el entorno verificado usa **v22.23.3**. [scripts/vendor-sdk.js](scripts/vendor-sdk.js) comprueba la versión instalada y copia el bundle UMD oficial sin transformaciones a `vendor/supabase-js-2.118.0.js`, junto con su licencia. Genera `vendor/supabase-sdk.json` con el SHA-256 calculado sobre los bytes copiados para facilitar su revisión. Este resumen local no es un SRI remoto ni una verificación independiente del origen. El bundle, la licencia, el manifiesto y `package-lock.json` están incluidos en el proyecto; sirve el bundle junto con la aplicación.
 
 La aplicación carga ese archivo local de forma asíncrona solo tras validar la configuración, sin fallback a CDN. Esta es la alternativa local a ejecutar código remoto con SRI: no se incluye ningún hash inventado. Las llamadas concurrentes comparten una sola descarga, y los fallos limpian el estado para reintentar. La carga tiene un límite de 10 segundos; las peticiones usan cancelación a los 15 segundos. Si falta el archivo local, Cloud informa del problema y las herramientas estadísticas siguen disponibles.
 
-**Pendiente en este entorno:** no se pudo descargar la dependencia por `ENOTFOUND registry.npmjs.org`. El bundle oficial, su licencia, su resumen y el lockfile aún no están generados; hace falta completar `npm install` con acceso al registro antes de usar Cloud. No se afirma haber verificado los bytes de un SDK que no se pudo obtener.
+Al actualizar el SDK, actualiza la versión exacta en `package.json` y el lockfile, ejecuta `npm run vendor:sdk` y ajusta la ruta en `cloud-service.js`. `npm test` comprueba que la versión instalada, el lockfile, el manifiesto, los bytes del bundle y la ruta del cargador coincidan. Solo retira bundles anteriores después de comprobar que no tienen consumidores.
 
 El proyecto remoto debe tener habilitado el proveedor de correo y contraseña. Su Site URL y sus redirecciones permitidas deben corresponder al origen donde sirves Clara. El registro no fuerza la confirmación ni la deshabilita: si Supabase no devuelve sesión, Clara informa que se revise el correo y luego se inicie sesión. El requisito local para crear una cuenta es de 8 caracteres; Supabase puede exigir reglas adicionales.
 
@@ -90,15 +90,18 @@ Los filtros por `user_id` se conservan en listado, recuperación y eliminación;
 
 ## Pruebas
 
-Requieren Node.js 18 o posterior y ninguna dependencia npm:
+Requieren Node.js 22 o posterior y la dependencia del SDK instalada con `npm ci`. No necesitan un framework de pruebas adicional:
 
 ```sh
 npm test
+npm audit
 ```
 
-Cubren validación de configuración y datasets, contrato JSON de `data` para ambas varianzas, rechazo de contenido remoto inválido y columnas inexistentes, rechazo de secretos y JWT, `maybeSingle()` sin filas, consultas limitadas al propietario, paginación con finales exactos, conservación y retroceso de página al borrar, errores, cancelación y regresiones de estadísticas, histogramas y muestreo reproducible. También ejecutan `cloud-ui.js` con un DOM mínimo y dobles para probar autenticación, autocomplete, eventos de recuperación (incluido radio de varianza ausente), doble envío y respuestas tardías tras cambiar de cuenta. El cargador del SDK se prueba con carga concurrente, URL local versionada, error, timeout, exportación inválida y reintento. Estos dobles no validan el diseño visual ni los bytes del SDK oficial.
+Cubren validación de configuración y datasets, contrato JSON de `data` para ambas varianzas, rechazo de contenido remoto inválido y columnas inexistentes, rechazo de secretos y JWT, `maybeSingle()` sin filas, consultas limitadas al propietario, paginación con finales exactos, conservación y retroceso de página al borrar, errores, cancelación y regresiones de estadísticas, histogramas y muestreo reproducible. También ejecutan `cloud-ui.js` con un DOM mínimo y dobles para probar autenticación, autocomplete, eventos de recuperación (incluido radio de varianza ausente), doble envío y respuestas tardías tras cambiar de cuenta. El cargador del SDK se prueba con carga concurrente, URL local versionada, error, timeout, exportación inválida y reintento.
 
-La prueba de integración usa Chromium y dobles de Supabase, sin servidor ni acceso remoto:
+`tests/sdk.test.js` compara el SHA-256 del bundle y sus bytes con el UMD del paquete instalado. Además ejecuta ese bundle real en un contexto aislado con transporte HTTP simulado para comprobar la versión anunciada, registro, login, sesión, eventos de Auth, cierre local y CRUD con filtros por propietario y esquema `public`. No contacta Supabase ni comprueba las políticas RLS desplegadas.
+
+La prueba de integración usa Chromium, el bundle real para comprobar su carga y sesión inicial, y dobles de Supabase para los flujos de interfaz, sin servidor ni acceso remoto:
 
 ```sh
 npm run test:browser
@@ -106,14 +109,20 @@ npm run test:browser
 CHROMIUM_BIN=/ruta/a/chromium npm run test:browser
 ```
 
-Comprueba modo local, gráficos, simulación, registro, confirmación pendiente, login, CRUD, cancelación de borrado, doble envío, nombres con HTML, paginación, errores, cambio de cuenta, respuestas tardías y anchura móvil. Genera exclusivamente archivos ignorados en `test-results/` y `.browser-test-profile/`, dentro del proyecto. Los valores de las fixtures son ficticios y solo se pasan a dobles; nunca a un servidor.
+Comprueba modo local, gráficos, simulación, carga del SDK oficial, registro, confirmación pendiente, login, CRUD, cancelación de borrado, doble envío, nombres con HTML, paginación, errores, cambio de cuenta, respuestas tardías y anchura móvil. Genera exclusivamente archivos ignorados en `test-results/` y `.browser-test-profile/`, dentro del proyecto. Sustituye la configuración por fixtures ficticias sin cargar `supabase-config.js`, aunque Cloud esté configurado en el proyecto. Ninguna fixture se envía a un servidor.
 
-Validación en el entorno de implementación: `npm test` y `git diff --check` pasan. La ejecución de Chromium está bloqueada por la restricción de sockets del entorno (`setsockopt: Operation not permitted`), por lo que no se afirma que las pruebas de navegador hayan pasado. La descarga desde npm tampoco estaba disponible. No se probó Auth ni PostgreSQL reales porque no se proporcionaron valores de configuración y no se autorizó modificar la base.
+Validación de la actualización con Node.js v22.23.3: `npm test` y `git diff --check` pasan. `npm audit` se intentó, pero no pudo consultar el registro (`ENOTFOUND registry.npmjs.org`); el estado de vulnerabilidades queda pendiente. `npm run test:browser` se intentó, pero Chromium no pudo arrancar por la restricción de sockets del entorno (`setsockopt: Operation not permitted`). No se afirma que las pruebas de navegador hayan pasado ni que se haya validado Auth o RLS contra un proyecto real.
+
+## Revisión antes de publicar
+
+**Antigravity debe revisar estos cambios e identificar posibles problemas antes de publicar.** La revisión sigue pendiente: el ejecutable está instalado, pero el intento de iniciarlo en este entorno falló con `sandbox_host_linux.cc: shutdown: Operation not permitted`. No se ha obtenido un informe de Antigravity.
+
+La revisión debe comprobar el diff, la coincidencia de versiones y bytes del SDK, la carga desde una subcarpeta, Auth y el contrato de datasets, y confirmar que `supabase-config.js` y las políticas RLS permanecen intactos. También debe repetir `npm audit` con acceso al registro y `npm run test:browser` en un entorno que permita Chromium. Las pruebas con transporte simulado no sustituyen una comprobación autorizada de aislamiento RLS entre dos cuentas.
 
 ## Archivos
 
 - `statistics.js`, `laboratory.js`, `lab-ui.js`, `app.js`: herramientas locales originales, conservadas sin cambios.
-- `supabase-config.js`: URL y clave publicable con marcadores explícitos.
+- `supabase-config.js`: URL y clave publicable del proyecto; no se modifica al actualizar el SDK.
 - `cloud-service.js`: carga de supabase-js, validación y consultas a `public.datasets`.
 - `cloud-ui.js`: autenticación, estado de sesión e interfaz de datasets.
 - `tests/`: pruebas automatizadas sin credenciales reales.

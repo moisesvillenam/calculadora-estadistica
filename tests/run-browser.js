@@ -5,12 +5,13 @@ const { pathToFileURL } = require('node:url');
 const { spawn } = require('node:child_process');
 const root = path.resolve(__dirname, '..');
 const results = path.join(root, 'test-results');
-const profile = path.join(root, '.browser-test-profile');
+const profile = '/tmp/clara-chrome';
 fs.mkdirSync(results, { recursive: true });
 fs.mkdirSync(profile, { recursive: true });
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const sdkVersion = require('../vendor/supabase-sdk.json').version;
 const fixture = fs.readFileSync(path.join(__dirname, 'browser.html'), 'utf8')
-  .replace('<script src="browser-tests.js">', `<script>window.CLARA_TEST_HTML=${JSON.stringify(html).replace(/</g, '\\u003c')};</script><script src="../tests/browser-tests.js">`);
+  .replace('<script src="browser-tests.js">', `<script>window.CLARA_TEST_SDK_VERSION=${JSON.stringify(sdkVersion)};window.CLARA_TEST_HTML=${JSON.stringify(html).replace(/</g, '\\u003c')};</script><script src="../tests/browser-tests.js">`);
 const target = path.join(results, 'browser.html');
 fs.writeFileSync(target, fixture);
 const child = spawn(process.env.CHROMIUM_BIN || 'chromium', [

@@ -10,7 +10,7 @@
     "test:browser": "node tests/run-browser.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22.0.0"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.118.0"

@@ -3,7 +3,7 @@
   const statistics = typeof module !== 'undefined' && module.exports ? require('./statistics.js') : root.Statistics;
   // Generated locally from the exact npm dependency by npm run vendor:sdk.
   // Never fall back to executing unverified CDN code.
-  const SDK_URL = new URL('vendor/supabase-js-2.49.10.js', root.document?.currentScript?.src || root.document?.baseURI || 'http://localhost/').href;
+  const SDK_URL = new URL('vendor/supabase-js-2.118.0.js', root.document?.currentScript?.src || root.document?.baseURI || 'http://localhost/').href;
   const PAGE_SIZE = 20;
   let sdkLoading;
 
