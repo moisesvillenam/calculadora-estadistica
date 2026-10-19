@@ -122,7 +122,7 @@
       }
       get('calculator').elements.variance.value = dataset.variance_type;
       get('numbers').value = dataset.values.join('; ');
-      get('calculator').querySelector('input[name="variance"]:checked').dispatchEvent(new Event('change', { bubbles: true }));
+      get('calculator').querySelector('input[name="variance"]:checked')?.dispatchEvent(new Event('change', { bubbles: true }));
       get('numbers').dispatchEvent(new Event('input', { bubbles: true }));
       get('dataset-name').value = dataset.name;
       notify(`«${dataset.name}» recuperado en la calculadora.`);

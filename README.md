@@ -37,9 +37,9 @@ El proyecto remoto debe tener habilitado el proveedor de correo y contraseña. S
 
 Consulta las referencias oficiales de [instalación del SDK](https://supabase.com/docs/reference/javascript/installing), [claves publicables](https://supabase.com/docs/guides/getting-started/api-keys) y [registro y confirmación de correo](https://supabase.com/docs/reference/javascript/auth-signup).
 
-## Contrato de PostgreSQL pendiente de provisión
+## Contrato de PostgreSQL y JSON
 
-**Esta implementación no crea ni modifica tablas, políticas o configuración remota, no contiene un ejecutor de migraciones y no ejecutó SQL.** Antes de usar Cloud, una persona con permisos debe comprobar que el proyecto dispone del siguiente contrato. No se ha supuesto que la tabla exista ni se ha contactado una base de datos real.
+**Esta implementación se adapta a la tabla existente sin modificar PostgreSQL ni sus políticas RLS.** No contiene un ejecutor de migraciones y no ejecutó SQL ni contactó una base de datos real.
 
 Tabla: `public.datasets`.
 
@@ -48,11 +48,23 @@ Tabla: `public.datasets`.
 | `id` | `uuid` | Clave primaria; generación en PostgreSQL con `gen_random_uuid()` |
 | `user_id` | `uuid` | Obligatorio, referencia a `auth.users(id)`; propietario |
 | `name` | `text` | Obligatorio, tras quitar espacios entre 1 y 100 caracteres |
-| `values` | `double precision[]` | Obligatorio, arreglo unidimensional de 1 a 10 000 números finitos, sin nulos |
-| `variance_type` | `text` | Obligatorio, solo `population` o `sample`; `sample` requiere al menos 2 números |
+| `data` | `jsonb` | Objeto JSON con `values` y `variance_type`, según el contrato siguiente |
 | `created_at` | `timestamptz` | Obligatorio, valor por defecto `now()` |
 
-Estas restricciones deben existir también en PostgreSQL: la validación del navegador no sustituye las restricciones de la tabla. El API debe aceptar y devolver `values` como arreglo JSON de números. La aplicación conserva orden, repeticiones y tipo de varianza; calcula de nuevo las estadísticas al recuperar. No almacena resultados derivados ni el progreso de las simulaciones. `id` y `created_at` se generan en el servidor; `user_id` se toma de la sesión y RLS debe comprobarlo. Los nombres duplicados están permitidos; cada guardado crea una fila.
+`values` y `variance_type` **no son columnas**. El contenido de `data` se envía como objeto JSON, no como una cadena serializada:
+
+```json
+{
+  "values": [1, 2, 3],
+  "variance_type": "sample"
+}
+```
+
+`data.values` es un arreglo de 1 a 10 000 números finitos, sin nulos ni cadenas. `data.variance_type` solo acepta `population` o `sample`; `sample` requiere al menos 2 números. El servicio valida este contenido al guardar y recuperar y rechaza datos ausentes o inválidos. Conserva orden, repeticiones y tipo de varianza; calcula de nuevo las estadísticas al recuperar. No almacena resultados derivados ni el progreso de las simulaciones.
+
+La interfaz mantiene su contrato plano `{ name, values, variance_type }`. `save` lo transforma en `{ user_id, name, data: { values, variance_type } }` y solicita únicamente `id` como retorno. `list` consulta `id,name,data,created_at` y devuelve a la interfaz los metadatos con `variance_type` extraído de `data`. `get` consulta `id,name,data` y devuelve `{ id, name, values, variance_type }` validado. No se consultan columnas `values` ni `variance_type`, ni se usa un formato antiguo como alternativa. Los campos adicionales recibidos no se guardan ni sustituyen el propietario o el nombre.
+
+`id` y `created_at` se generan en el servidor; el cliente conserva esa expectativa y no cambia sus valores por defecto. `user_id` se toma de la sesión y RLS debe comprobarlo. Los nombres duplicados están permitidos; cada guardado crea una fila. La validación del navegador no sustituye las restricciones existentes de la tabla.
 
 La API de datos debe exponer `public`. RLS debe estar **habilitado** en `public.datasets`, sin políticas amplias que permitan acceso a otros propietarios. Contrato de las políticas para el rol `authenticated`:
 
@@ -64,7 +76,7 @@ La API de datos debe exponer `public`. RLS debe estar **habilitado** en `public.
 
 El rol `authenticated` necesita permiso de SELECT, INSERT y DELETE; `anon` no debe tener acceso a datasets. Esta versión no necesita UPDATE. INSERT y DELETE solicitan filas de retorno, por lo que SELECT también debe estar permitido. Un índice de `user_id, created_at DESC, id DESC` facilita la paginación. Revisa [RLS en Supabase](https://supabase.com/docs/guides/database/postgres/row-level-security) antes de habilitar datos reales.
 
-Los filtros por `user_id` del cliente facilitan consultas correctas, pero **RLS es quien garantiza el aislamiento entre cuentas**. Las pruebas con dobles no verifican políticas de una base de datos. Cuando se autorice la provisión por separado, debe comprobarse con dos cuentas que ninguna pueda consultar o eliminar las filas de la otra, ni insertar una fila con otro propietario; sin sesión no debe haber acceso.
+Los filtros por `user_id` se conservan en listado, recuperación y eliminación; recuperar y eliminar también filtran por `id`. **RLS es quien garantiza el aislamiento entre cuentas**. Las pruebas con dobles no verifican políticas de una base de datos. Una comprobación remota con dos cuentas requiere autorización por separado: ninguna debe poder consultar o eliminar las filas de la otra, ni insertar una fila con otro propietario; sin sesión no debe haber acceso.
 
 ## Comportamiento de la interfaz
 
@@ -84,7 +96,7 @@ Requieren Node.js 18 o posterior y ninguna dependencia npm:
 npm test
 ```
 
-Cubren validación de configuración y datasets, rechazo de secretos y JWT, `maybeSingle()` sin filas, consultas limitadas al propietario, paginación con finales exactos, conservación y retroceso de página al borrar, errores, cancelación y regresiones de estadísticas, histogramas y muestreo reproducible. También ejecutan `cloud-ui.js` con un DOM mínimo y dobles para probar autenticación, autocomplete, eventos de recuperación, doble envío y respuestas tardías tras cambiar de cuenta. El cargador del SDK se prueba con carga concurrente, URL local versionada, error, timeout, exportación inválida y reintento. Estos dobles no validan el diseño visual ni los bytes del SDK oficial.
+Cubren validación de configuración y datasets, contrato JSON de `data` para ambas varianzas, rechazo de contenido remoto inválido y columnas inexistentes, rechazo de secretos y JWT, `maybeSingle()` sin filas, consultas limitadas al propietario, paginación con finales exactos, conservación y retroceso de página al borrar, errores, cancelación y regresiones de estadísticas, histogramas y muestreo reproducible. También ejecutan `cloud-ui.js` con un DOM mínimo y dobles para probar autenticación, autocomplete, eventos de recuperación (incluido radio de varianza ausente), doble envío y respuestas tardías tras cambiar de cuenta. El cargador del SDK se prueba con carga concurrente, URL local versionada, error, timeout, exportación inválida y reintento. Estos dobles no validan el diseño visual ni los bytes del SDK oficial.
 
 La prueba de integración usa Chromium y dobles de Supabase, sin servidor ni acceso remoto:
 

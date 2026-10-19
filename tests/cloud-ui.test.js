@@ -159,6 +159,20 @@ test('recuperar usa el evento local y eliminar exige confirmación', async () =>
   assert.equal(ui.get('numbers').value, '2; 4');
 });
 
+test('recuperar sin radio seleccionado sigue emitiendo input y completa la carga', async () => {
+  const ui = await setup({ initial: { user: { id: 'owner' } }, list: async () => [{ id: 'one', name: 'Datos', variance_type: 'sample' }] });
+  ui.get('calculator').querySelector = () => null;
+  let inputs = 0;
+  ui.get('numbers').addEventListener('input', () => { inputs++; });
+  await ui.get('datasets-list').querySelectorAll('button')[0].dispatchEvent({ type: 'click' });
+  assert.equal(inputs, 1);
+  assert.equal(ui.get('numbers').value, '2; 4');
+  assert.equal(ui.get('dataset-name').value, 'Datos');
+  assert.equal(ui.get('cloud-error').hidden, true);
+  assert.match(ui.get('cloud-status').textContent, /recuperado/);
+  assert.equal(ui.get('dataset-save').disabled, false);
+});
+
 test('fallo de cierre conserva sesión y comunica el error', async () => {
   const ui = await setup({ initial: { user: { id: 'owner' } } });
   ui.client.auth.signOut = async () => ({ error: { message: 'Failed to fetch' } });

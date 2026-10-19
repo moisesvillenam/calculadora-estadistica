@@ -28,16 +28,20 @@ const client = {
   schema(name) { mock.calls.push(['schema', name]); return this; },
   from(table) {
     mock.calls.push(['from', table]);
-    let action = 'list', payload, single = false, start = 0, end = 19;
+    let action = 'list', payload, selected, single = false, start = 0, end = 19;
+    const columns = ['id', 'user_id', 'name', 'data', 'created_at'];
+    const checkColumns = names => {
+      if (names.some(name => !columns.includes(name))) throw new Error('Columna inexistente en public.datasets');
+    };
     const filters = {};
     const query = {
-      select() { return this; },
+      select(fields) { selected = fields.split(','); checkColumns(selected); return this; },
       eq(key, value) { filters[key] = value; return this; },
       order() { return this; },
       range(from, to) { start = from; end = to; return this; },
       single() { single = true; return this; },
       maybeSingle() { single = true; return this; },
-      insert(value) { action = 'insert'; payload = value; return this; },
+      insert(value) { checkColumns(Object.keys(value)); action = 'insert'; payload = value; return this; },
       delete() { action = 'delete'; return this; },
       then(resolve, reject) {
         mock.calls.push([action, { ...filters }]);
@@ -51,6 +55,8 @@ const client = {
         } else if (action === 'delete') {
           mock.rows = mock.rows.filter(row => !matching.includes(row)); data = matching;
         } else data = single ? matching[0] : matching.slice(start, end + 1);
+        const project = row => row ? Object.fromEntries(selected.map(key => [key, row[key]])) : null;
+        if (selected) data = Array.isArray(data) ? data.map(project) : project(data);
         return Promise.resolve({ data, error: null }).then(resolve, reject);
       }
     };

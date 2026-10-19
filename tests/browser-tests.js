@@ -73,6 +73,9 @@
     submit('dataset-form', 'dataset-save');
     await wait();
     assert(mock.rows.length === 1, 'Un solo guardado');
+    assert(JSON.stringify(mock.rows[0].data) === JSON.stringify({ values: [1, 2, 3, 4], variance_type: 'sample' }), 'Guarda valores y varianza dentro de data');
+    assert(!('values' in mock.rows[0]) && !('variance_type' in mock.rows[0]), 'No crea columnas inexistentes');
+    assert(get('datasets-list').textContent.includes('Muestral'), 'Lista lee la varianza desde data');
     assert(!get('datasets-list').querySelector('img'), 'Nombre remoto se muestra como texto');
     get('numbers').value = '100; 200';
     get('calculator').elements.variance.value = 'population';
@@ -97,7 +100,7 @@
     assert(get('numbers').value === '1; 2; 3; 4', 'Eliminar conserva calculadora');
     passed.push('Guardar, recuperar, recalcular y eliminar; doble envío y texto seguro');
 
-    mock.rows = Array.from({ length: 21 }, (_, i) => ({ id: String(i), name: `Dataset ${i}`, values: [1, 2], variance_type: 'population', user_id: 'owner', created_at: '2026-10-19' }));
+    mock.rows = Array.from({ length: 21 }, (_, i) => ({ id: String(i), name: `Dataset ${i}`, data: { values: [1, 2], variance_type: 'population' }, user_id: 'owner', created_at: '2026-10-19' }));
     get('datasets-refresh').click(); await wait();
     assert(get('datasets-list').children.length === 20 && !get('datasets-next').disabled, 'Primera página');
     get('datasets-next').click(); await wait();

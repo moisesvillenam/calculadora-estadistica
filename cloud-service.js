@@ -106,20 +106,30 @@
         if (!Number.isSafeInteger(page) || page < 0 || !Number.isSafeInteger(page * PAGE_SIZE + PAGE_SIZE)) {
           throw new Error('Página no válida.');
         }
-        const rows = unwrap(await table(userId).select('id,name,variance_type,created_at')
+        const rows = unwrap(await table(userId).select('id,name,data,created_at')
           .eq('user_id', userId).order('created_at', { ascending: false }).order('id', { ascending: false })
           .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE));
-        return { rows: rows.slice(0, PAGE_SIZE), hasNext: rows.length > PAGE_SIZE };
+        return {
+          rows: rows.slice(0, PAGE_SIZE).map(row => ({
+            id: row.id, name: row.name, variance_type: row.data?.variance_type, created_at: row.created_at
+          })),
+          hasNext: rows.length > PAGE_SIZE
+        };
       },
       async save(userId, dataset) {
-        const payload = validateDataset(dataset);
-        return unwrap(await table(userId).insert({ ...payload, user_id: userId }).select('id').single());
+        const { name, values, variance_type } = validateDataset(dataset);
+        return unwrap(await table(userId).insert({ name, data: { values, variance_type }, user_id: userId }).select('id').single());
       },
       async get(userId, id) {
-        const row = unwrap(await table(userId).select('id,name,values,variance_type')
+        const row = unwrap(await table(userId).select('id,name,data')
           .eq('user_id', userId).eq('id', id).maybeSingle());
         if (!row) throw new Error('Este dataset ya no está disponible. Actualiza la lista.');
-        return { id: row.id, ...validateDataset(row) };
+        if (!row.data || typeof row.data !== 'object' || Array.isArray(row.data)) {
+          throw new Error('El contenido del dataset debe ser un objeto JSON válido.');
+        }
+        return { id: row.id, ...validateDataset({
+          name: row.name, values: row.data.values, variance_type: row.data.variance_type
+        }) };
       },
       async remove(userId, id) {
         const rows = unwrap(await table(userId).delete().eq('user_id', userId).eq('id', id).select('id'));
