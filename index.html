@@ -11,6 +11,8 @@
   <script src="laboratory.js" defer></script>
   <script src="lab-ui.js" defer></script>
   <script src="app.js" defer></script>
+  <script src="data-import.js" defer></script>
+  <script src="import-ui.js" defer></script>
   <script src="supabase-config.js" defer></script>
   <script src="cloud-service.js" defer></script>
   <script src="cloud-ui.js" defer></script>
@@ -47,6 +49,13 @@
             <label for="numbers">Conjunto de números</label>
             <textarea id="numbers" name="numbers" rows="5" placeholder="Ej.: 8; 12; 15; 10; 20; 15; 18" aria-describedby="input-help error" spellcheck="false"></textarea>
             <p id="input-help" class="hint">Separa con espacios, punto y coma o saltos de línea.<br>Usa un punto para los decimales: <strong>3.5</strong>. No uses comas.<br>Máximo: 10 000 valores; una muestra requiere al menos dos.</p>
+            <div class="file-import">
+              <label for="data-file">Subir archivo de datos</label>
+              <input id="data-file" type="file" accept=".csv,.txt" aria-describedby="file-help import-error">
+              <p id="file-help" class="hint">CSV o TXT en UTF-8, hasta 1 MiB y 10 000 valores. Solo números, sin encabezados, con punto decimal. CSV: separa con comas, punto y coma o tabulaciones; se leen todas las celdas por filas. TXT: usa los separadores del campo manual. La carga reemplaza los datos actuales y se procesa en tu navegador.</p>
+              <p id="import-status" class="hint" role="status" aria-atomic="true"></p>
+              <p id="import-error" class="error" role="alert" hidden></p>
+            </div>
             <fieldset>
               <legend>Tipo de varianza y desviación estándar</legend>
               <div class="variance-options">

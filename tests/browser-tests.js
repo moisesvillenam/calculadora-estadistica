@@ -83,6 +83,33 @@
     l('simulate').click();
     passed.push('Modo local: configuración ausente, cálculos, gráficos y simulación');
 
+    async function importFile(text, name) {
+      const transfer = new local.DataTransfer();
+      transfer.items.add(new local.File([text], name, { type: 'text/plain' }));
+      l('data-file').files = transfer.files;
+      l('data-file').dispatchEvent(new local.Event('change', { bubbles: true }));
+      for (let i = 0; i < 50 && l('data-file').hasAttribute('aria-busy'); i++) await wait();
+      assert(!l('data-file').hasAttribute('aria-busy'), 'La lectura debe finalizar');
+    }
+    await importFile('1,2\r\n3,4', 'datos.csv');
+    assert(l('numbers').value === '1; 2; 3; 4', 'CSV rellena el campo manual');
+    assert(l('count').textContent === '4' && l('mean').textContent === '2,5', 'Archivo recalcula resultados');
+    assert(local.document.querySelectorAll('#data-chart circle').length === 4, 'Archivo actualiza gráficos');
+    assert(l('import-status').textContent.includes('4 valores cargados'), 'Confirma la carga');
+    await importFile('valor\n1', 'datos.csv');
+    assert(!l('import-error').hidden && l('numbers').value === '1; 2; 3; 4', 'Archivo inválido conserva datos');
+    assert(l('mean').textContent === '2,5', 'Archivo inválido conserva resultados');
+    await importFile('5; 10\n15', 'datos.txt');
+    assert(l('mean').textContent === '10' && l('import-error').hidden, 'TXT carga después de un error');
+    l('numbers').value = '2; 6';
+    l('numbers').dispatchEvent(new local.Event('input', { bubbles: true }));
+    assert(l('mean').textContent === '4' && l('import-status').textContent === '', 'Edición manual sigue funcionando');
+    assert(local.document.documentElement.scrollWidth <= local.innerWidth, 'Selector de archivo sin desbordamiento móvil');
+    l('clear').click();
+    await wait();
+    assert(l('numbers').value === '' && l('import-status').textContent === '', 'Limpiar reinicia la importación');
+    passed.push('Archivos locales: CSV, TXT, errores sin pérdida de datos, gráficos, edición y limpieza');
+
     // Exercise the real script loader and browser UMD export with no backend calls.
     const version = window.CLARA_TEST_SDK_VERSION || (await (await fetch(new URL('vendor/supabase-sdk.json', base))).json()).version;
     realClient = await local.ClaraCloud.loadClient({ url: 'https://example.invalid', publishableKey: 'sb_publishable_TEST_ONLY' });

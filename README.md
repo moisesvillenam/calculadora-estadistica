@@ -11,6 +11,7 @@ Las herramientas locales se pueden usar sin instalación ni cuenta. Los números
 ## Qué puedes hacer
 
 - **Analizar hasta 10 000 valores:** media, mediana, varianza y desviación estándar poblacionales o muestrales, cantidad de datos, mínimo y máximo.
+- **Cargar archivos CSV o TXT:** importa números desde la misma sección de ingreso manual, sin cuenta ni envío a Cloud.
 - **Explorar distribuciones:** histogramas con intervalos ajustables, tabla de frecuencias y una vista de puntos para editar valores y observar su efecto.
 - **Aprender con ejemplos:** conjuntos equilibrados, asimétricos y con valores extremos, además de explicaciones y fórmulas junto a los resultados.
 - **Experimentar con el muestreo:** simular 500 muestras con reemplazo, ajustar su tamaño y comparar la dispersión observada de las medias con la teórica. La semilla fija permite reproducir el experimento.
@@ -38,6 +39,20 @@ Abre <http://localhost:8080>. Usa HTTP para probar la autenticación y las redir
 4. En el laboratorio, ajusta el tamaño de muestra y pulsa **Iniciar simulación**.
 
 Separa los números con espacios, punto y coma o saltos de línea. Usa punto decimal (`3.5`), sin comas. La varianza muestral requiere al menos dos valores.
+
+### Cargar datos desde un archivo
+
+En **Introduce tus datos**, usa **Subir archivo de datos** para seleccionar un `.csv` o `.txt` en UTF-8, de hasta **1 MiB** y **10 000 valores**:
+
+- **CSV:** números separados por comas, punto y coma o tabulaciones (un mismo separador en todo el archivo). Admite varias filas y columnas; todas las celdas se incorporan en orden por filas. Se permiten números entre comillas dobles y líneas en blanco. No admite encabezados, celdas vacías ni columnas de texto.
+- **TXT:** los mismos separadores del campo manual: espacios, tabulaciones, punto y coma o saltos de línea.
+- Usa **punto decimal**, por ejemplo `3.5`, en ambos formatos. En CSV, `3,5` representa dos valores, `3` y `5`.
+
+Por ejemplo, un CSV con `8,12,15` en la primera fila y `10,20,18` en la segunda importa seis números. Para archivos de hoja de cálculo, exporta primero los datos numéricos como CSV sin encabezados.
+
+Una carga válida reemplaza el campo manual y actualiza los resultados y gráficos, conservando el tipo de varianza seleccionado. Puedes seguir editando los números. Si el archivo no es válido o los valores no permiten calcular la varianza seleccionada, se conservan los datos y resultados anteriores. Editar, limpiar o cargar otro conjunto descarta una lectura pendiente.
+
+El archivo se procesa localmente en el navegador. Solo **Guardar datos actuales** envía los valores a Cloud.
 
 ### Alcance del modo local
 
@@ -162,6 +177,7 @@ npm test
 | Suite | Cobertura principal |
 | --- | --- |
 | `tests/statistics.test.js` | Cálculos, validación numérica, histogramas y muestreo reproducible |
+| `tests/data-import.test.js`, `tests/import-ui.test.js` | Formatos y límites de archivos, errores sin pérdida de datos y lecturas pendientes |
 | `tests/cloud.test.js` | Configuración, contrato JSON, filtros por propietario, paginación y errores |
 | `tests/cloud-ui.test.js` | Autenticación, eventos de recuperación, doble envío y cambios de cuenta con un DOM simulado |
 | `tests/sdk.test.js` | Concordancia de versiones y bytes del SDK, carga concurrente, reintentos y Auth/CRUD con transporte simulado |
@@ -190,6 +206,7 @@ Clara está construida con HTML, CSS y JavaScript, sin framework de interfaz ni 
 | --- | --- |
 | [index.html](index.html), [styles.css](styles.css) | Estructura, contenido y diseño de la interfaz |
 | [statistics.js](statistics.js), [app.js](app.js) | Validación, cálculos e interfaz de la calculadora |
+| [data-import.js](data-import.js), [import-ui.js](import-ui.js) | Lectura y validación local de archivos CSV/TXT e integración con el campo manual |
 | [laboratory.js](laboratory.js), [lab-ui.js](lab-ui.js) | Histogramas, muestreo e interacción con el laboratorio |
 | [cloud-service.js](cloud-service.js) | Carga del SDK, validación y consultas a `public.datasets` |
 | [cloud-ui.js](cloud-ui.js) | Formularios de cuenta, sesión y gestión de datasets |
