@@ -1,57 +1,116 @@
 # Clara Cloud
 
-Clara conserva su calculadora, estadísticas poblacionales y muestrales, histogramas, edición de puntos, ejemplos y laboratorio de muestreo. La cuenta Cloud es opcional: permite registro con correo y contraseña, inicio y cierre de sesión y guardar, listar, recuperar y eliminar datasets propios mediante Supabase Auth y PostgreSQL (`public.datasets`).
+**Explora tus datos. Experimenta con muestras. Comprende la estadística.**
 
-## Uso local
+Clara Cloud es un laboratorio estadístico interactivo en español que funciona en el navegador. Calcula estadísticas, visualiza distribuciones y observa cómo cambia una muestra al modificar tus datos. La cuenta Cloud es opcional y permite guardar y recuperar conjuntos de datos mediante Supabase.
 
-Abre `index.html` en un navegador para utilizar las herramientas locales. No requieren instalación, cuenta ni conexión a Supabase. Para probar Auth y las redirecciones de confirmación de correo, sirve esta carpeta mediante HTTP, por ejemplo con `python3 -m http.server 8080`, y abre `http://localhost:8080`.
+Las herramientas locales se pueden usar sin instalación ni cuenta. Los números solo se envían a la base de datos cuando eliges **Guardar datos actuales**.
 
-El modo local significa que los cálculos funcionan con los archivos de la aplicación disponibles, incluso si falla Internet o Supabase. No se implementa una PWA ni una caché para abrir un sitio remoto por primera vez sin Internet. La calculadora no persiste automáticamente los números al cerrar la página.
+[Inicio rápido](#inicio-rápido) · [Cloud opcional](#cloud-opcional) · [Pruebas](#pruebas) · [Estructura del proyecto](#estructura-del-proyecto) · [Contribuir](#contribuir)
 
-## Configuración de Cloud
+## Qué puedes hacer
 
-Si Cloud aún no está configurado, completa únicamente los dos campos de [supabase-config.js](supabase-config.js); conserva los valores existentes si ya corresponden a tu proyecto:
+- **Analizar hasta 10 000 valores:** media, mediana, varianza y desviación estándar poblacionales o muestrales, cantidad de datos, mínimo y máximo.
+- **Explorar distribuciones:** histogramas con intervalos ajustables, tabla de frecuencias y una vista de puntos para editar valores y observar su efecto.
+- **Aprender con ejemplos:** conjuntos equilibrados, asimétricos y con valores extremos, además de explicaciones y fórmulas junto a los resultados.
+- **Experimentar con el muestreo:** simular 500 muestras con reemplazo, ajustar su tamaño y comparar la dispersión observada de las medias con la teórica. La semilla fija permite reproducir el experimento.
+- **Guardar conjuntos en Cloud:** crear una cuenta, iniciar sesión y guardar, listar, recuperar o eliminar tus datasets. La lista muestra 20 conjuntos por página.
 
-| Campo | Valor necesario |
-| --- | --- |
-| `url` | URL HTTPS del proyecto Supabase, sin rutas ni credenciales |
-| `publishableKey` | Clave **publicable**, con prefijo `sb_publishable_` |
+La interfaz incluye diseño adaptable, navegación por teclado, etiquetas de formulario y mensajes de estado accesibles.
 
-La configuración es pública y visible en el navegador. Nunca introduzcas claves secretas, `service_role`, contraseñas de PostgreSQL ni una cadena de conexión. Esta versión rechaza las claves JWT antiguas, incluidas las `anon`: utiliza una clave publicable. La actualización del SDK conserva este archivo sin cambios.
+## Inicio rápido
 
-Sin valores válidos se muestra una explicación y no se carga el SDK ni se hacen peticiones a Supabase. Las funciones locales siguen disponibles. Para habilitar Cloud, prepara el SDK **local y versionado**:
+Descarga o clona el repositorio y abre `index.html` en un navegador con JavaScript habilitado. No necesitas Node.js ni configurar Supabase para usar la calculadora, los gráficos y el laboratorio.
+
+Para servir la aplicación por HTTP, ejecuta desde la raíz del repositorio, si tienes Python 3 instalado:
+
+```sh
+python3 -m http.server 8080 --bind 127.0.0.1
+```
+
+Abre <http://localhost:8080>. Usa HTTP para probar la autenticación y las redirecciones de confirmación de correo.
+
+### Tu primer experimento
+
+1. Pulsa **Usar ejemplo** o introduce `8; 12; 15; 10; 20; 15; 18`.
+2. Selecciona varianza **Poblacional** o **Muestral** y observa los resultados.
+3. Alterna entre **Distribución** y **Puntos** para explorar o editar los datos.
+4. En el laboratorio, ajusta el tamaño de muestra y pulsa **Iniciar simulación**.
+
+Separa los números con espacios, punto y coma o saltos de línea. Usa punto decimal (`3.5`), sin comas. La varianza muestral requiere al menos dos valores.
+
+### Alcance del modo local
+
+Los cálculos funcionan sin conexión cuando los archivos de la aplicación ya están disponibles. No hay PWA ni caché para abrir por primera vez un sitio remoto sin Internet. Los números de la calculadora no se conservan automáticamente al cerrar la página; tampoco se guarda el progreso de las simulaciones.
+
+## Cloud opcional
+
+Cloud usa **Supabase Auth** para las cuentas y **PostgreSQL** para los datasets. Las herramientas estadísticas siguen disponibles si Cloud no está configurado o falla la conexión.
+
+### 1. Preparar el SDK
+
+Para instalar dependencias y ejecutar la suite completa de pruebas necesitas **Node.js 22 o posterior** y npm. Desde la raíz del repositorio:
 
 ```sh
 npm ci
-# postinstall ejecuta vendor:sdk. Para repetir la copia:
+```
+
+El script `postinstall` ejecuta `npm run vendor:sdk`. Copia el bundle UMD oficial de `@supabase/supabase-js`, fijado a la versión **2.118.0**, a `vendor/`, junto con su licencia y un manifiesto SHA-256. Puedes repetir la copia con:
+
+```sh
 npm run vendor:sdk
 ```
 
-`package.json` fija `@supabase/supabase-js` exactamente a **2.118.0**. El SDK requiere **Node.js 22 o posterior** para las herramientas npm. [scripts/vendor-sdk.js](scripts/vendor-sdk.js) comprueba la versión instalada y copia el bundle UMD oficial sin transformaciones a `vendor/supabase-js-2.118.0.js`, junto con su licencia. Genera `vendor/supabase-sdk.json` con el SHA-256 calculado sobre los bytes copiados para facilitar su revisión. `.gitattributes` desactiva la conversión de finales de línea para estos bundles y conserva sus bytes al cambiar de plataforma. Este resumen local no es un SRI remoto ni una verificación independiente del origen. El bundle, la licencia, el manifiesto y `package-lock.json` están incluidos en el proyecto; sirve el bundle junto con la aplicación.
+La aplicación carga el SDK desde `vendor/supabase-js-2.118.0.js`, de forma asíncrona y solo tras validar la configuración. No usa un CDN como alternativa. Distribuye la carpeta `vendor/` junto con la aplicación; el bundle, la licencia y el manifiesto están incluidos en este repositorio.
 
-La aplicación carga ese archivo local de forma asíncrona solo tras validar la configuración, sin fallback a CDN. Esta es la alternativa local a ejecutar código remoto con SRI: no se incluye ningún hash inventado. Las llamadas concurrentes comparten una sola descarga, y los fallos limpian el estado para reintentar. La carga tiene un límite de 10 segundos; las peticiones usan cancelación a los 15 segundos. Si falta el archivo local, Cloud informa del problema y las herramientas estadísticas siguen disponibles.
+### 2. Configurar la conexión pública
 
-Al actualizar el SDK, actualiza la versión exacta en `package.json` y el lockfile, ejecuta `npm run vendor:sdk` y ajusta la ruta en `cloud-service.js`. `npm test` comprueba que la versión instalada, el lockfile, el manifiesto, los bytes del bundle y la ruta del cargador coincidan. Solo retira bundles anteriores después de comprobar que no tienen consumidores.
+Completa los campos de [supabase-config.js](supabase-config.js), conservando los valores existentes si ya corresponden a tu proyecto:
 
-El proyecto remoto debe tener habilitado el proveedor de correo y contraseña. Su Site URL y sus redirecciones permitidas deben corresponder al origen donde sirves Clara. El registro no fuerza la confirmación ni la deshabilita: si Supabase no devuelve sesión, Clara informa que se revise el correo y luego se inicie sesión. El requisito local para crear una cuenta es de 8 caracteres; Supabase puede exigir reglas adicionales.
+| Campo | Valor esperado |
+| --- | --- |
+| `url` | URL HTTPS del proyecto Supabase, sin rutas ni credenciales |
+| `publishableKey` | Clave publicable con prefijo `sb_publishable_` |
 
-Consulta las referencias oficiales de [instalación del SDK](https://supabase.com/docs/reference/javascript/installing), [claves publicables](https://supabase.com/docs/guides/getting-started/api-keys) y [registro y confirmación de correo](https://supabase.com/docs/reference/javascript/auth-signup).
+**Este archivo es público y visible en el navegador.** No incluyas claves secretas, `service_role`, contraseñas de PostgreSQL ni cadenas de conexión. La aplicación rechaza las claves JWT antiguas, incluidas las `anon`.
 
-## Contrato de PostgreSQL y JSON
+Si la configuración no es válida, Clara muestra una explicación, no carga el SDK y no hace peticiones a Supabase. La preparación del SDK no modifica este archivo.
 
-**Esta implementación se adapta a la tabla existente sin modificar PostgreSQL ni sus políticas RLS.** No contiene un ejecutor de migraciones y no ejecutó SQL ni contactó una base de datos real.
+### 3. Preparar autenticación y datos
 
-Tabla: `public.datasets`.
+En tu proyecto Supabase:
 
-| Columna | Tipo esperado | Requisitos |
+- Habilita el proveedor de correo y contraseña.
+- Configura la Site URL y las redirecciones permitidas para la dirección donde sirves Clara.
+- Prepara `public.datasets` y sus políticas de acceso según el [contrato de datos](#contrato-de-datos).
+
+Clara no crea tablas ni ejecuta migraciones. El registro requiere una contraseña de al menos ocho caracteres; Supabase puede exigir reglas adicionales. Si el registro no devuelve una sesión, la interfaz indica que revises el correo antes de iniciar sesión.
+
+### Cómo se guardan tus datos
+
+Cada guardado crea un dataset nuevo con un nombre, los valores actuales y el tipo de varianza. Se permiten nombres repetidos. No se guardan estadísticas derivadas: se recalculan al recuperar el conjunto.
+
+- Solo **Guardar datos actuales** envía los números a la base. No hay guardado automático ni cola de escrituras sin conexión.
+- Recuperar un conjunto pide confirmación antes de reemplazar datos locales y sincroniza resultados, fórmulas y gráficos.
+- Eliminar pide confirmación. Los nombres se muestran como texto, sin interpretar HTML.
+- Supabase conserva y renueva la sesión en el navegador. Cerrar sesión afecta a este dispositivo y conserva los números de la calculadora.
+- Los cambios de cuenta descartan respuestas pendientes de la sesión anterior. Los estados de carga evitan envíos duplicados.
+
+Si se pierde la conexión durante un guardado, el servidor podría haberlo recibido. Actualiza la lista antes de repetirlo para evitar duplicados.
+
+## Contrato de datos
+
+La aplicación espera la tabla `public.datasets` con esta estructura:
+
+| Columna | Tipo | Requisitos |
 | --- | --- | --- |
-| `id` | `uuid` | Clave primaria; generación en PostgreSQL con `gen_random_uuid()` |
-| `user_id` | `uuid` | Obligatorio, referencia a `auth.users(id)`; propietario |
-| `name` | `text` | Obligatorio, tras quitar espacios entre 1 y 100 caracteres |
-| `data` | `jsonb` | Objeto JSON con `values` y `variance_type`, según el contrato siguiente |
-| `created_at` | `timestamptz` | Obligatorio, valor por defecto `now()` |
+| `id` | `uuid` | Clave primaria; generada en PostgreSQL con `gen_random_uuid()` |
+| `user_id` | `uuid` | Obligatoria; referencia a `auth.users(id)` e identifica al propietario |
+| `name` | `text` | Obligatoria; de 1 a 100 caracteres tras recortar espacios exteriores |
+| `data` | `jsonb` | Objeto con `values` y `variance_type` |
+| `created_at` | `timestamptz` | Obligatoria; valor por defecto `now()` |
 
-`values` y `variance_type` **no son columnas**. El contenido de `data` se envía como objeto JSON, no como una cadena serializada:
+`values` y `variance_type` son propiedades de `data`, **no columnas independientes**. El contenido se envía como objeto JSON:
 
 ```json
 {
@@ -60,71 +119,92 @@ Tabla: `public.datasets`.
 }
 ```
 
-`data.values` es un arreglo de 1 a 10 000 números finitos, sin nulos ni cadenas. `data.variance_type` solo acepta `population` o `sample`; `sample` requiere al menos 2 números. El servicio valida este contenido al guardar y recuperar y rechaza datos ausentes o inválidos. Conserva orden, repeticiones y tipo de varianza; calcula de nuevo las estadísticas al recuperar. No almacena resultados derivados ni el progreso de las simulaciones.
+`values` admite entre 1 y 10 000 números finitos, sin nulos ni cadenas. `variance_type` acepta `population` o `sample`; esta última exige al menos dos valores. El servicio valida el contenido al guardar y recuperar, preservando el orden y las repeticiones.
 
-La interfaz mantiene su contrato plano `{ name, values, variance_type }`. `save` lo transforma en `{ user_id, name, data: { values, variance_type } }` y solicita únicamente `id` como retorno. `list` consulta `id,name,data,created_at` y devuelve a la interfaz los metadatos con `variance_type` extraído de `data`. `get` consulta `id,name,data` y devuelve `{ id, name, values, variance_type }` validado. No se consultan columnas `values` ni `variance_type`, ni se usa un formato antiguo como alternativa. Los campos adicionales recibidos no se guardan ni sustituyen el propietario o el nombre.
+El cliente obtiene `user_id` de la sesión. PostgreSQL genera `id` y `created_at`. La validación del navegador no sustituye las restricciones de la tabla.
 
-`id` y `created_at` se generan en el servidor; el cliente conserva esa expectativa y no cambia sus valores por defecto. `user_id` se toma de la sesión y RLS debe comprobarlo. Los nombres duplicados están permitidos; cada guardado crea una fila. La validación del navegador no sustituye las restricciones existentes de la tabla.
+### Acceso por propietario
 
-La API de datos debe exponer `public`. RLS debe estar **habilitado** en `public.datasets`, sin políticas amplias que permitan acceso a otros propietarios. Contrato de las políticas para el rol `authenticated`:
+La API de datos debe exponer el esquema `public`. Habilita **Row Level Security (RLS)** en `public.datasets`, con políticas para el rol `authenticated` que cumplan este contrato:
 
-| Operación | Expresión de acceso |
+| Operación | Condición de acceso |
 | --- | --- |
 | SELECT | `USING ((select auth.uid()) = user_id)` |
 | INSERT | `WITH CHECK ((select auth.uid()) = user_id)` |
 | DELETE | `USING ((select auth.uid()) = user_id)` |
 
-El rol `authenticated` necesita permiso de SELECT, INSERT y DELETE; `anon` no debe tener acceso a datasets. Esta versión no necesita UPDATE. INSERT y DELETE solicitan filas de retorno, por lo que SELECT también debe estar permitido. Un índice de `user_id, created_at DESC, id DESC` facilita la paginación. Revisa [RLS en Supabase](https://supabase.com/docs/guides/database/postgres/row-level-security) antes de habilitar datos reales.
+El rol `authenticated` necesita permisos de SELECT, INSERT y DELETE; `anon` no debe tener acceso a los datasets. No se necesita UPDATE. INSERT y DELETE solicitan filas de retorno, por lo que también requieren SELECT. Un índice sobre `(user_id, created_at DESC, id DESC)` facilita la paginación.
 
-Los filtros por `user_id` se conservan en listado, recuperación y eliminación; recuperar y eliminar también filtran por `id`. **RLS es quien garantiza el aislamiento entre cuentas**. Las pruebas con dobles no verifican políticas de una base de datos. Una comprobación remota con dos cuentas requiere autorización por separado: ninguna debe poder consultar o eliminar las filas de la otra, ni insertar una fila con otro propietario; sin sesión no debe haber acceso.
+Las consultas del cliente filtran por propietario, pero **RLS garantiza el aislamiento entre cuentas**. Evita políticas adicionales que permitan acceder a datos ajenos. Las pruebas locales usan dobles y transporte simulado: no verifican las políticas de una base de datos desplegada.
 
-## Comportamiento de la interfaz
+<details>
+<summary>Detalles del servicio de datasets</summary>
 
-- Supabase conserva y renueva la sesión en el navegador. Los cambios de sesión actualizan la interfaz y descartan respuestas pendientes de otra cuenta. El cierre usa `scope: 'local'` para este dispositivo; no borra los números de la calculadora. Si falla, se informa y permite reintentar. Véase [cierre de sesión](https://supabase.com/docs/reference/javascript/auth-signout).
-- Solo **Guardar datos actuales** envía los números a la base. Se validan usando las mismas reglas de la calculadora. No hay guardado automático ni cola de escrituras sin conexión.
-- Registro e inicio de sesión se eligen antes de escribir la contraseña: `autocomplete` usa `new-password` o `current-password`, respectivamente; Enter respeta el modo elegido.
-- La lista muestra páginas de 20 filas y consulta una fila adicional para habilitar Siguiente solo si hay más datos. Actualizar y eliminar conservan la página actual; si queda vacía, retroceden hasta una página con filas o la primera. Un error de navegación conserva la página y las filas anteriores.
-- Recuperar usa [`maybeSingle()`](https://supabase.com/docs/reference/javascript/maybesingle) y comunica que el dataset ya no está disponible si no existe. Valida `variance_type` antes del cálculo y emite `change` del radio seleccionado e `input` de los números, sincronizando resultados, fórmulas y gráficos. Confirma antes de reemplazar un conjunto local. Guardar conserva `single()` porque requiere una fila de retorno. Eliminar pide confirmación y comprueba que se haya eliminado una fila.
-- Los estados de carga bloquean envíos duplicados. Hay mensajes accesibles de error, sesión, listas vacías y desconexión. Los nombres se renderizan como texto, sin interpretar HTML.
-- Si una escritura termina pero no se puede actualizar la lista, se informa por separado. Si se pierde la conexión durante una escritura, puede que el servidor la haya recibido: actualiza la lista antes de volver a guardar para evitar duplicados.
+La interfaz usa el contrato plano `{ name, values, variance_type }`:
+
+- `save` lo convierte en `{ user_id, name, data: { values, variance_type } }` y solicita `id` con `single()`.
+- `list` consulta `id,name,data,created_at`, extrae el tipo de varianza y pide una fila adicional para detectar si existe una página siguiente.
+- `get` consulta `id,name,data` con `maybeSingle()`, valida el contenido y devuelve `{ id, name, values, variance_type }`. Si la fila ya no existe, informa al usuario.
+- `remove` filtra por propietario e identificador y comprueba que se haya eliminado una fila.
+
+Actualizar y eliminar conservan la página actual; si queda vacía, la interfaz retrocede hasta encontrar filas o llegar a la primera página. Un error de navegación conserva la lista anterior.
+
+</details>
 
 ## Pruebas
 
-Requieren Node.js 22 o posterior y la dependencia del SDK instalada con `npm ci`. No necesitan un framework de pruebas adicional:
+Las pruebas usan el ejecutor integrado de Node.js. Tras instalar las dependencias con `npm ci`:
 
 ```sh
 npm test
-npm audit
 ```
 
-Cubren validación de configuración y datasets, contrato JSON de `data` para ambas varianzas, rechazo de contenido remoto inválido y columnas inexistentes, rechazo de secretos y JWT, `maybeSingle()` sin filas, consultas limitadas al propietario, paginación con finales exactos, conservación y retroceso de página al borrar, errores, cancelación y regresiones de estadísticas, histogramas y muestreo reproducible. También ejecutan `cloud-ui.js` con un DOM mínimo y dobles para probar autenticación, autocomplete, eventos de recuperación (incluido radio de varianza ausente), doble envío y respuestas tardías tras cambiar de cuenta. El cargador del SDK se prueba con carga concurrente, URL local versionada, error, timeout, exportación inválida y reintento.
+| Suite | Cobertura principal |
+| --- | --- |
+| `tests/statistics.test.js` | Cálculos, validación numérica, histogramas y muestreo reproducible |
+| `tests/cloud.test.js` | Configuración, contrato JSON, filtros por propietario, paginación y errores |
+| `tests/cloud-ui.test.js` | Autenticación, eventos de recuperación, doble envío y cambios de cuenta con un DOM simulado |
+| `tests/sdk.test.js` | Concordancia de versiones y bytes del SDK, carga concurrente, reintentos y Auth/CRUD con transporte simulado |
 
-`tests/sdk.test.js` compara el SHA-256 del bundle y sus bytes con el UMD del paquete instalado. Además ejecuta ese bundle real en un contexto aislado con transporte HTTP simulado para comprobar la versión anunciada, registro, login, sesión, eventos de Auth, cierre local y CRUD con filtros por propietario y esquema `public`. El transporte admite URL o Request y opciones omitidas o parciales. Las sesiones de prueba se mantienen en memoria, sin acceder a localStorage. No contacta Supabase ni comprueba las políticas RLS desplegadas.
+Estas suites no necesitan credenciales reales ni contactan Supabase. La suite del SDK requiere tanto la dependencia instalada en `node_modules/` como los archivos de `vendor/`.
 
-La prueba de integración usa Chromium, el bundle real para comprobar su carga y sesión inicial, y dobles de Supabase para los flujos de interfaz, sin servidor ni acceso remoto:
+### Integración en navegador
+
+Requiere Chromium instalado y un entorno que permita ejecutarlo:
 
 ```sh
-npm run test:browser
-# Si Chromium está en otra ubicación:
-CHROMIUM_BIN=/ruta/a/chromium npm run test:browser
-# Para mantener también el perfil dentro del proyecto:
 CHROMIUM_PROFILE_DIR="$PWD/.browser-test-profile" npm run test:browser
 ```
 
-Comprueba modo local, gráficos, simulación, carga del SDK oficial, registro, confirmación pendiente, login, CRUD, cancelación de borrado, doble envío, nombres con HTML, paginación, errores, cambio de cuenta, respuestas tardías y anchura móvil. Genera la página de pruebas en `test-results/` (ignorado por Git). Por defecto crea un perfil exclusivo con prefijo `clara-` en el directorio temporal del sistema (`/tmp` en Linux); `CHROMIUM_PROFILE_DIR` permite elegir otra ruta. Usa una ruta corta para los sockets de Chromium y un perfil dedicado a pruebas. Los archivos del perfil se conservan tras la ejecución.
+Si el ejecutable tiene otra ubicación, indica también `CHROMIUM_BIN=/ruta/a/chromium`. El comando anterior mantiene el perfil dentro del repositorio; sin `CHROMIUM_PROFILE_DIR`, el ejecutor crea un perfil en el directorio temporal del sistema. Los perfiles se conservan después de la ejecución.
 
-Sustituye `supabase-config.js` por fixtures ficticias antes de cargar la aplicación, independientemente de comillas, espacios u orden de atributos; si la etiqueta falta o aparece duplicada, la prueba falla sin cargar la aplicación. Los frames bloquean las conexiones mediante CSP y un fetch que rechaza peticiones, y el SDK usa sesiones en memoria sin acceder a localStorage. Ninguna fixture se envía a un servidor.
+La integración comprueba herramientas locales, carga del SDK real, flujos de cuenta y datasets, paginación, errores y anchura móvil. Sustituye la configuración por datos ficticios antes de cargar la aplicación, bloquea las conexiones de los frames y mantiene las sesiones de prueba en memoria. No requiere servidor ni acceso remoto. Genera una página en `test-results/`; tanto esa carpeta como `.browser-test-profile/` están ignoradas por Git.
 
-## Revisión antes de publicar
+Para revisar dependencias puedes ejecutar `npm audit` por separado; necesita acceso al registro de npm. Ninguna de estas comprobaciones sustituye una prueba de aislamiento RLS con dos cuentas en un entorno remoto preparado para ello.
 
-**Antigravity debe revisar los cambios y señalar cualquier problema bloqueante antes de publicar.**
+## Estructura del proyecto
 
-La revisión debe comprobar el diff, la coincidencia de versiones y bytes del SDK, la carga desde una subcarpeta, Auth y el contrato de datasets, y confirmar que `supabase-config.js` y las políticas RLS permanecen intactos. Ejecuta `npm test`, `npm audit` con acceso al registro y `npm run test:browser` en un entorno que permita Chromium. Resuelve los problemas bloqueantes antes de publicar. Las pruebas con transporte simulado no sustituyen una comprobación autorizada de aislamiento RLS entre dos cuentas.
+Clara está construida con HTML, CSS y JavaScript, sin framework de interfaz ni paso de compilación para las herramientas locales.
 
-## Archivos
+| Archivo o carpeta | Responsabilidad |
+| --- | --- |
+| [index.html](index.html), [styles.css](styles.css) | Estructura, contenido y diseño de la interfaz |
+| [statistics.js](statistics.js), [app.js](app.js) | Validación, cálculos e interfaz de la calculadora |
+| [laboratory.js](laboratory.js), [lab-ui.js](lab-ui.js) | Histogramas, muestreo e interacción con el laboratorio |
+| [cloud-service.js](cloud-service.js) | Carga del SDK, validación y consultas a `public.datasets` |
+| [cloud-ui.js](cloud-ui.js) | Formularios de cuenta, sesión y gestión de datasets |
+| [supabase-config.js](supabase-config.js) | Configuración pública de la conexión opcional |
+| [scripts/vendor-sdk.js](scripts/vendor-sdk.js), [vendor/](vendor/) | Preparación y distribución local del SDK |
+| [tests/](tests/) | Pruebas unitarias e integración en navegador |
 
-- `statistics.js`, `laboratory.js`, `lab-ui.js`, `app.js`: herramientas locales originales, conservadas sin cambios.
-- `supabase-config.js`: URL y clave publicable del proyecto; no se modifica al actualizar el SDK.
-- `cloud-service.js`: carga de supabase-js, validación y consultas a `public.datasets`.
-- `cloud-ui.js`: autenticación, estado de sesión e interfaz de datasets.
-- `tests/`: pruebas automatizadas sin credenciales reales.
+## Contribuir
+
+Para proponer una mejora o informar de un error, describe el comportamiento esperado, los pasos para reproducirlo y el navegador utilizado. Usa datos ficticios en los ejemplos.
+
+Antes de enviar una propuesta de cambios, ejecuta las pruebas pertinentes y comprueba que las herramientas locales siguen funcionando sin Cloud. Si cambias el formato de los datasets o los requisitos de configuración, actualiza también esta documentación.
+
+Para actualizar el SDK, cambia la versión exacta en `package.json` y el lockfile, ejecuta `npm run vendor:sdk` y ajusta la ruta en `cloud-service.js`. `npm test` verifica la correspondencia entre versión, manifiesto, bundle y cargador. El SHA-256 del manifiesto permite comprobar los bytes copiados; no es una verificación independiente del origen del paquete. Retira bundles anteriores solo cuando ya no tengan consumidores.
+
+## Licencia
+
+Este repositorio no incluye una licencia para el código de Clara. La licencia del SDK de Supabase se distribuye por separado en [vendor/SUPABASE-LICENSE](vendor/SUPABASE-LICENSE).
