@@ -42,18 +42,59 @@
     };
   }
 
-  function sampleMeans(values, size, repetitions, random = Math.random) {
+  function validateSampling(values, size, method) {
     validate(values);
-    if (!Number.isInteger(size) || size < 1 || size > 50 ||
-        !Number.isInteger(repetitions) || repetitions < 1 || repetitions > 1000) {
+    if (!['replacement', 'simple', 'systematic'].includes(method)) throw new Error('Tipo de muestreo no válido.');
+    if (!Number.isInteger(size) || size < 1 || size > 10000) throw new Error('El tamaño debe ser un entero entre 1 y 10 000.');
+    if (method !== 'replacement' && size > values.length) throw new Error('Sin reemplazo, la muestra no puede superar la población.');
+  }
+
+  function drawRandom(random) {
+    const value = random();
+    if (!(value >= 0 && value < 1) || !Number.isFinite(value)) throw new Error('Generador aleatorio no válido.');
+    return value;
+  }
+
+  // Select positions, so equal values remain distinct observations.
+  function drawSample(values, size, method, random) {
+    if (method === 'replacement') {
+      return Array.from({ length: size }, () => values[Math.floor(drawRandom(random) * values.length)]);
+    }
+    if (method === 'systematic') {
+      const step = values.length / size;
+      const start = drawRandom(random) * step;
+      return Array.from({ length: size }, (_, i) => values[Math.min(values.length - 1, Math.floor(start + i * step))]);
+    }
+    // Partial Fisher–Yates with a sparse map avoids copying a large population.
+    const positions = new Map();
+    return Array.from({ length: size }, (_, i) => {
+      const chosen = i + Math.floor(drawRandom(random) * (values.length - i));
+      const index = positions.get(chosen) ?? chosen;
+      positions.set(chosen, positions.get(i) ?? i);
+      return values[index];
+    });
+  }
+
+  function sample(values, size, method = 'replacement', random = Math.random) {
+    validateSampling(values, size, method);
+    return drawSample(values, size, method, random);
+  }
+
+  function randomValues(count, random = Math.random) {
+    if (!Number.isInteger(count) || count < 1 || count > 10000) throw new Error('Elige una cantidad entera entre 1 y 10 000.');
+    return Array.from({ length: count }, () => Math.floor(drawRandom(random) * 101));
+  }
+
+  function sampleMeans(values, size, repetitions, random = Math.random, method = 'replacement') {
+    validateSampling(values, size, method);
+    if (size > 50 || !Number.isInteger(repetitions) || repetitions < 1 || repetitions > 1000) {
       throw new Error('Tamaño o número de muestras fuera de rango.');
     }
     return Array.from({ length: repetitions }, () => {
       let mean = 0;
+      const drawn = drawSample(values, size, method, random);
       for (let i = 0; i < size; i++) {
-        const draw = random();
-        if (!(draw >= 0 && draw < 1)) throw new Error('Generador aleatorio no válido.');
-        const value = values[Math.floor(draw * values.length)];
+        const value = drawn[i];
         mean += (value - mean) / (i + 1);
       }
       if (!Number.isFinite(mean)) throw new Error('Valores demasiado grandes para simular.');
@@ -61,7 +102,7 @@
     });
   }
 
-  const api = { histogram, seededRandom, sampleMeans };
+  const api = { histogram, seededRandom, sample, sampleMeans, randomValues };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Laboratory = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

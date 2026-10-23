@@ -12,9 +12,10 @@ Las herramientas locales se pueden usar sin instalación ni cuenta. Los números
 
 - **Analizar hasta 10 000 valores:** media, mediana, varianza y desviación estándar poblacionales o muestrales, cantidad de datos, mínimo y máximo.
 - **Cargar archivos CSV o TXT:** importa números desde la misma sección de ingreso manual, sin cuenta ni envío a Cloud.
+- **Generar datos aleatorios:** elige de 1 a 10 000 enteros uniformes entre 0 y 100. El botón reemplaza los datos y actualiza cálculos y gráficos; una cantidad inválida conserva los datos anteriores. La varianza muestral requiere al menos dos elementos.
 - **Explorar distribuciones:** histogramas con intervalos ajustables, tabla de frecuencias y una vista de puntos para editar valores y observar su efecto.
 - **Aprender con ejemplos:** conjuntos equilibrados, asimétricos y con valores extremos, además de explicaciones y fórmulas junto a los resultados.
-- **Experimentar con el muestreo:** simular 500 muestras con reemplazo, ajustar su tamaño y comparar la dispersión observada de las medias con la teórica. La semilla fija permite reproducir el experimento.
+- **Experimentar con el muestreo:** extraer una muestra o simular 500 mediante muestreo aleatorio con reemplazo, aleatorio simple sin reemplazo o sistemático. Ajusta el tamaño de 1 a 50; sin reemplazo no puede superar la población. La simulación usa una semilla fija y la extracción individual usa un nuevo sorteo, sin reemplazar los datos de la calculadora.
 - **Guardar conjuntos en Cloud:** crear una cuenta, iniciar sesión y guardar, listar, recuperar o eliminar tus datasets. La lista muestra 20 conjuntos por página.
 
 La interfaz incluye diseño adaptable, navegación por teclado, etiquetas de formulario y mensajes de estado accesibles.
@@ -39,6 +40,8 @@ Abre <http://localhost:8080>. Usa HTTP para probar la autenticación y las redir
 4. En el laboratorio, ajusta el tamaño de muestra y pulsa **Iniciar simulación**.
 
 Separa los números con espacios, punto y coma o saltos de línea. Usa punto decimal (`3.5`), sin comas. La varianza muestral requiere al menos dos valores.
+
+En **Aprender** encontrarás fórmulas de media, mediana, varianza, desviación estándar y muestreo, con notación y ejemplos numéricos. La dispersión teórica usa la desviación poblacional del conjunto: `σ / √n` con reemplazo y `(σ / √n) √((N − n) / (N − 1))` en aleatorio simple sin reemplazo (cero para una población de un elemento). El sistemático conserva el orden de entrada, usa un inicio uniforme en `[0, N/n)` y selecciona las posiciones `⌊r + j·N/n⌋ + 1`, para `j = 0, …, n − 1`. Su dispersión depende del orden y solo se muestra la observada. Cambiar datos, método o tamaño reinicia la simulación y limpia la muestra anterior.
 
 ### Cargar datos desde un archivo
 

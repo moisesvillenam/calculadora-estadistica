@@ -81,7 +81,36 @@ document.getElementById('clear').addEventListener('click', () => {
   form.reset();
   input.focus();
 });
+const randomCount = document.getElementById('random-count');
+const randomError = document.getElementById('random-error');
+const randomStatus = document.getElementById('random-status');
+function clearGeneratorFeedback() {
+  randomError.hidden = true;
+  randomError.textContent = '';
+  randomStatus.textContent = '';
+  randomCount.removeAttribute('aria-invalid');
+}
+randomCount.addEventListener('input', clearGeneratorFeedback);
+input.addEventListener('input', clearGeneratorFeedback);
+document.getElementById('example').addEventListener('click', clearGeneratorFeedback);
+document.getElementById('generate-data').addEventListener('click', () => {
+  clearGeneratorFeedback();
+  try {
+    const values = Laboratory.randomValues(randomCount.valueAsNumber);
+    // Validate before replacing the user's current data, including sample variance.
+    Statistics.calculateStatistics(values, form.elements.variance.value);
+    input.value = values.join('; ');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    randomStatus.textContent = `${values.length} valores aleatorios generados. Resultados actualizados.`;
+  } catch (exception) {
+    randomError.textContent = exception.message;
+    randomError.hidden = false;
+    randomCount.setAttribute('aria-invalid', 'true');
+    randomCount.focus();
+  }
+});
 form.addEventListener('reset', () => {
+  clearGeneratorFeedback();
   // The reset event fires before the browser restores each control's default.
   queueMicrotask(() => {
     clearError();

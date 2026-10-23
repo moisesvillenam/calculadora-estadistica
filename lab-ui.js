@@ -10,6 +10,12 @@
   let data = [], result = null, view = 'histogram', selected = null;
   let means = [], timer = null, random = Laboratory.seededRandom();
   const limit = 500;
+  const samplingDescriptions = {
+    replacement: 'Cada sorteo es independiente: una observación puede repetirse. Se permite n mayor que N.',
+    simple: 'Selecciona posiciones al azar sin repetirlas. Todas las combinaciones tienen la misma probabilidad; n ≤ N.',
+    systematic: 'Inicio aleatorio e intervalo N / n sobre el orden de entrada, sin repetir posiciones. La dispersión depende de ese orden; n ≤ N.'
+  };
+  const method = () => get('sampling-method').value;
   const svgNS = 'http://www.w3.org/2000/svg';
   const node = (tag, text, className) => {
     const element = document.createElement(tag);
@@ -112,6 +118,14 @@
   }
   function resetSimulation() {
     pause(); means = []; random = Laboratory.seededRandom();
+    const sizeControl = get('sample-size');
+    sizeControl.max = String(method() === 'replacement' ? 50 : Math.max(1, Math.min(50, data.length)));
+    sizeControl.value = String(Math.min(Number(sizeControl.value), Number(sizeControl.max)));
+    get('sample-size-value').textContent = sizeControl.value;
+    get('sampling-help').textContent = samplingDescriptions[method()];
+    get('draw-sample').disabled = !data.length;
+    get('sample-values').value = '';
+    get('sample-summary').textContent = '';
     get('simulate').disabled = !data.length;
     get('simulate').textContent = 'Iniciar simulación ▶';
     get('reset-simulation').disabled = !data.length;
@@ -119,14 +133,22 @@
     get('simulation-progress').value = 0;
     get('simulation-mean').textContent = '—';
     get('simulation-spread').textContent = '—';
-    get('simulation-theory').textContent = result ? fmt(Statistics.calculateStatistics(data).standardDeviation / Math.sqrt(Number(get('sample-size').value))) : '—';
+    let theory = '—';
+    if (result) {
+      const size = Number(sizeControl.value);
+      const standardError = Statistics.calculateStatistics(data).standardDeviation / Math.sqrt(size);
+      theory = method() === 'systematic' ? 'Depende del orden' : fmt(method() === 'simple'
+        ? standardError * (data.length === 1 ? 0 : Math.sqrt((data.length - size) / (data.length - 1)))
+        : standardError);
+    }
+    get('simulation-theory').textContent = theory;
     get('simulation-status').textContent = data.length ? 'Todo listo. Genera 500 muestras de tus datos.' : 'Introduce datos válidos para empezar.';
     get('simulation-detail').textContent = 'Cada barra agrupa medias de muestras.';
     emptyChart('simulation-chart', '¿Qué forma tendrán las medias?');
   }
   function tick() {
     try {
-      means.push(...Laboratory.sampleMeans(data, Number(get('sample-size').value), Math.min(25, limit - means.length), random));
+      means.push(...Laboratory.sampleMeans(data, Number(get('sample-size').value), Math.min(25, limit - means.length), random, method()));
       const summary = Statistics.calculateStatistics(means);
       drawHistogram('simulation-chart', Laboratory.histogram(means, 12, [result.min, result.max]), means.length, 'simulation-detail');
       get('simulation-count').textContent = `${means.length} / ${limit}`;
@@ -136,7 +158,9 @@
       if (means.length === limit) {
         pause();
         get('simulate').textContent = 'Repetir simulación ↻';
-        get('simulation-status').textContent = '500 muestras completadas. Cambia n y compara la dispersión teórica y observada.';
+        get('simulation-status').textContent = method() === 'systematic'
+          ? '500 muestras completadas. La dispersión observada refleja el orden de tus datos.'
+          : '500 muestras completadas. Cambia n y compara la dispersión teórica y observada.';
       } else timer = setTimeout(tick, 60);
     } catch (error) {
       pause();
@@ -153,7 +177,7 @@
     }
     if (means.length >= limit) resetSimulation();
     get('simulate').textContent = 'Pausar Ⅱ';
-    get('simulation-status').textContent = 'Simulando muestras con reemplazo…';
+    get('simulation-status').textContent = `Simulando: ${get('sampling-method').selectedOptions[0].textContent}…`;
     tick();
   });
   get('simulation-chart').addEventListener('focusin', () => {
@@ -163,6 +187,18 @@
     }
   });
   get('reset-simulation').addEventListener('click', resetSimulation);
+  get('sampling-method').addEventListener('change', resetSimulation);
+  get('draw-sample').addEventListener('click', () => {
+    if (!data.length) return;
+    try {
+      const values = Laboratory.sample(data, Number(get('sample-size').value), method());
+      const summary = Statistics.calculateStatistics(values);
+      get('sample-values').value = values.join('; ');
+      get('sample-summary').textContent = `${values.length} observaciones · media: ${fmt(summary.mean)} · mediana: ${fmt(summary.median)}. Se conservan los datos de la calculadora.`;
+    } catch (error) {
+      get('sample-summary').textContent = error.message;
+    }
+  });
   get('sample-size').addEventListener('input', () => {
     get('sample-size-value').textContent = get('sample-size').value;
     resetSimulation();
